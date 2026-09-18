@@ -60,11 +60,12 @@ class Element {
 }
 for (const id of fs.readFileSync('site/index.html', 'utf8').matchAll(/id="([^"]+)"/g)) elements.set(
   id[1], new Element(id[1]));
-const addButtons = ['handle', 'bump', 'bowl', 'ring', 'plane', 'cube', 'sphere', 'cylinder'].map(type => {
-  let e = new Element(type);
-  e.dataset.add = type;
-  return e;
-});
+const addButtons = ['handle', 'bump', 'bowl', 'ring', 'plane', 'cube', 'sphere', 'cylinder'].map(
+  type => {
+    let e = new Element(type);
+    e.dataset.add = type;
+    return e;
+  });
 globalThis.document = {
   getElementById: id => elements.get(id),
   createElement: () => new Element('new'),
@@ -109,7 +110,9 @@ elements.get('remove').onclick();
 elements.get('walk').onclick();
 for (let i = 0; i < 10; i++) animate(performance.now() + i * 20);
 assert.ok(tools.get('read_surface_state').execute().distanceTravelled > 0);
-console.log('PASS scene selection, view swapping, shape add/remove, reposition, auto-walk and tool validation');
+console.log(
+  'PASS scene selection, view swapping, shape add/remove, reposition, auto-walk and tool validation'
+  );
 
 // The explicit Default option disables a custom swatch; a negative shape also
 // suppresses the material controls even if its data retains an old color.
@@ -144,10 +147,37 @@ assert.equal(state.maxShapes, 3);
 assert.ok(state.shapeCount <= state.maxShapes);
 const before = state.shapeCount;
 addButtons.find(b => b.dataset.add === 'cylinder').onclick();
-assert.equal(tools.get('read_surface_state').execute().shapeCount, before, 'live maximum shape limit blocks additions');
+assert.equal(tools.get('read_surface_state').execute().shapeCount, before,
+  'live maximum shape limit blocks additions');
 assert.equal(elements.get('size').min, .8);
 assert.equal(elements.get('size').max, 4);
 assert.equal(elements.get('distance').min, 7);
-assert.equal(elements.get('distance').max, 18);
+assert.equal(elements.get('distance').max, 16, 'zoom remains capped even with a larger setting');
 assert.ok(!fs.readFileSync('site/index.html', 'utf8').includes('data-add="spike"'));
 console.log('PASS settings limits, cylinder primitive UI, and removed spike UI');
+for (const mode of ['cylinder', 'torus', 'sheets']) {
+  tools.get('select_surface').execute({
+    surface: mode
+  });
+  const before = tools.get('read_surface_state').execute().shapeCount;
+  addButtons.find(b => b.dataset.add === 'cylinder').onclick();
+  assert.equal(elements.get('shape-editor').hidden, false);
+  assert.equal(tools.get('read_surface_state').execute().shapeCount, before + 1);
+  assert.equal(elements.get('depth').disabled, false);
+  tools.get('select_surface').execute({
+    surface: 'joined'
+  });
+  tools.get('select_surface').execute({
+    surface: mode
+  });
+  assert.equal(tools.get('read_surface_state').execute().shapeCount, before + 1);
+  elements.get('remove').onclick();
+  assert.equal(tools.get('read_surface_state').execute().shapeCount, before);
+}
+elements.get('color-view').value = '1';
+elements.get('color-view').onchange();
+assert.equal(elements.get('legend').hidden, true);
+elements.get('color-view').value = '0';
+elements.get('color-view').onchange();
+assert.equal(elements.get('legend').hidden, false);
+console.log('PASS add/remove in every scene, retained scene objects, and independent color views');
