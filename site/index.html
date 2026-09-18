@@ -35,8 +35,15 @@
     </button>
    </div>
    <div class="header-actions">
-    <button aria-haspopup="dialog" aria-label="Open settings" id="settings">Settings</button>
-    <button aria-label="About the simulation" id="info">?</button>
+    <a href="hyper/index.html" style="font-size:14px;padding:8px;background:#233b47;color:white;border-radius:6px;text-decoration:none">
+     Enter 3D / 4D ↗
+    </a>
+    <button aria-haspopup="dialog" aria-label="Open settings" id="settings">
+     Settings
+    </button>
+    <button aria-label="About the simulation" id="info">
+     ?
+    </button>
    </div>
   </header>
   <div class="view-label">
@@ -57,6 +64,19 @@
     </button>
    </div>
    <div id="control-body">
+    <details>
+     <summary>
+      Camera
+     </summary>
+     <label>
+      <input checked="" id="follow-tilt" type="checkbox"/>
+      Observer follows surface tilt
+     </label>
+     <label>
+      Observer tilt
+      <input id="observer-tilt" max="80" min="9" type="range" value="36"/>
+     </label>
+    </details>
     <label for="scene">
      Surface
     </label>
@@ -86,34 +106,106 @@
       </button>
      </div>
      <div aria-label="Add a primitive" class="add-shapes" role="group">
-      <button data-add="handle">+ Handle</button>
-      <button data-add="bump">+ Bump</button>
-      <button data-add="bowl">+ Hollow</button>
-      <button data-add="ring">+ Ring</button>
-      <button data-add="plane">+ Flat plane</button>
-      <button data-add="cube">+ Cube</button>
-      <button data-add="sphere">+ Sphere</button>
-      <button data-add="cylinder">+ Cylinder</button>
+      <button data-add="handle">
+       + Handle
+      </button>
+      <button data-add="bump">
+       + Bump
+      </button>
+      <button data-add="bowl">
+       + Hollow
+      </button>
+      <button data-add="ring">
+       + Ring
+      </button>
+      <button data-add="plane">
+       + Flat plane
+      </button>
+      <button data-add="cube">
+       + Cube
+      </button>
+      <button data-add="sphere">
+       + Sphere
+      </button>
+      <button data-add="cylinder">
+       + Cylinder
+      </button>
      </div>
      <div class="positions">
-      <label>X <input id="x" max="30" min="-30" step=".5" type="number"/></label>
-      <label>Y <input id="y" max="30" min="-30" step=".5" type="number"/></label>
-      <label>Z <input id="z" max="30" min="-30" step=".5" type="number"/></label>
-      <label>Rotate X ° <input id="rotationX" max="180" min="-180" step="5" type="number"/></label>
-      <label>Rotate Y ° <input id="rotationY" max="180" min="-180" step="5" type="number"/></label>
-      <label>Rotate Z ° <input id="rotationZ" max="180" min="-180" step="5" type="number"/></label>
+      <label>
+       X
+       <input id="x" max="1000000000" min="-1000000000" step="any" type="number"/>
+      </label>
+      <label>
+       Y
+       <input id="y" max="1000000000" min="-1000000000" step="any" type="number"/>
+      </label>
+      <label>
+       Z
+       <input id="z" max="1000000000" min="-1000000000" step="any" type="number"/>
+      </label>
+      <label>
+       Rotate X °
+       <input id="rotationX" max="1000000000" min="-1000000000" step="any" type="number"/>
+      </label>
+      <label>
+       Rotate Y °
+       <input id="rotationY" max="1000000000" min="-1000000000" step="any" type="number"/>
+      </label>
+      <label>
+       Rotate Z °
+       <input id="rotationZ" max="1000000000" min="-1000000000" step="any" type="number"/>
+      </label>
      </div>
      <div class="shape-style">
-      <label for="operation">Operation <select id="operation"><option value="additive">Additive — raise / connect</option><option value="negative">Negative — cut inward</option></select></label>
-      <label for="color-mode">Shape color <select id="color-mode"><option value="default">Default — main surface gray</option><option value="custom">Custom</option></select></label>
-      <label for="color" id="custom-color-label">Custom swatch <input aria-label="Selected shape custom color" id="color" type="color" value="#3ba4e4"/></label>
+      <label for="operation">
+       Operation
+       <select id="operation">
+        <option value="additive">
+         Additive — raise / connect
+        </option>
+        <option value="negative">
+         Negative — cut inward
+        </option>
+       </select>
+      </label>
+      <label for="color-view">
+       Surface coloring
+       <select id="color-view">
+        <option value="0">
+         Curvature — original colors
+        </option>
+        <option value="1">
+         Object materials only
+        </option>
+        <option value="2">
+         Combined — protect curvature
+        </option>
+       </select>
+      </label>
+      <label for="color-mode">
+       Shape color
+       <select id="color-mode">
+        <option value="default">
+         Default — main surface gray
+        </option>
+        <option value="custom">
+         Custom
+        </option>
+       </select>
+      </label>
+      <label for="color" id="custom-color-label">
+       Custom swatch
+       <input aria-label="Selected shape custom color" id="color" type="color" value="#3ba4e4"/>
+      </label>
      </div>
     </div>
     <label class="range-label" for="size">
      <span id="size-label">
       Radius
      </span>
-     <output id="size-out">
+     <input aria-label="Exact size" class="exact-number" id="size-exact" step="any" type="number"/>
+     <output hidden="" id="size-out">
      </output>
     </label>
     <input id="size" max="6" min="1.4" step=".1" type="range"/>
@@ -121,7 +213,8 @@
      <span id="depth-label">
       Height / depth
      </span>
-     <output id="depth-out">
+     <input aria-label="Exact depth" class="exact-number" id="depth-exact" step="any" type="number"/>
+     <output hidden="" id="depth-out">
      </output>
     </label>
     <input id="depth" max="4" min=".5" step=".1" type="range"/>
@@ -129,7 +222,8 @@
      <span>
       Join softness
      </span>
-     <output id="blend-out">
+     <input aria-label="Exact blend" class="exact-number" id="blend-exact" step="any" type="number"/>
+     <output hidden="" id="blend-out">
      </output>
     </label>
     <input id="blend" max="2" min=".4" step=".1" type="range"/>
@@ -139,11 +233,11 @@
      <span>
       View distance
      </span>
-     <output id="distance-out">
-      12 m
+     <input aria-label="Exact distance" class="exact-number" id="distance-exact" step="any" type="number"/>
+     <output hidden="" id="distance-out">
      </output>
     </label>
-    <input id="distance" max="30" min="6" step="1" type="range" value="12"/>
+    <input id="distance" max="16" min="4" step="1" type="range" value="8"/>
     <div class="row actions">
      <button id="visit">
       On the shape
@@ -236,22 +330,92 @@
    Tracing the surface…
   </div>
   <dialog aria-labelledby="settings-title" id="settings-dialog">
-   <button aria-label="Close settings" class="dialog-close" id="close-settings">×</button>
-   <h2 id="settings-title">Playground settings</h2>
-   <p class="fine">Limits apply immediately. Shape capacity is fixed at 10 to match the shader and tracer.</p>
+   <button aria-label="Close settings" class="dialog-close" id="close-settings">
+    ×
+   </button>
+   <h2 id="settings-title">
+    Playground settings
+   </h2>
+   <p class="fine">
+    Limits apply immediately. Shape capacity is fixed at 10 to match the shader and tracer.
+   </p>
    <div class="settings-grid">
-    <label>Maximum shapes <input id="limit-shapes" max="10" min="1" step="1" type="number"/></label>
-    <label>Position limit (± m) <input id="limit-position" max="100" min="1" step="1" type="number"/></label>
-    <label>Minimum size <input id="limit-size-min" max="50" min=".1" step=".1" type="number"/></label>
-    <label>Maximum size <input id="limit-size-max" max="50" min=".1" step=".1" type="number"/></label>
-    <label>Minimum depth <input id="limit-depth-min" max="30" min=".05" step=".05" type="number"/></label>
-    <label>Maximum depth <input id="limit-depth-max" max="30" min=".05" step=".1" type="number"/></label>
-    <label>Minimum blend <input id="limit-blend-min" max="10" min=".02" step=".01" type="number"/></label>
-    <label>Maximum blend <input id="limit-blend-max" max="10" min=".02" step=".1" type="number"/></label>
-    <label>Minimum view distance <input id="limit-view-min" max="80" min="1" step="1" type="number"/></label>
-    <label>Maximum view distance <input id="limit-view-max" max="80" min="1" step="1" type="number"/></label>
+    <label>
+     Maximum shapes
+     <input id="limit-shapes" max="10" min="1" step="1" type="number"/>
+    </label>
+    <label>
+     Position limit (± m)
+     <input id="limit-position" max="1000000000" min=".001" step="any" type="number"/>
+    </label>
+    <label>
+     Minimum size
+     <input id="limit-size-min" max="1000000000" min=".001" step="any" type="number"/>
+    </label>
+    <label>
+     Maximum size
+     <input id="limit-size-max" max="1000000000" min=".001" step="any" type="number"/>
+    </label>
+    <label>
+     Minimum depth
+     <input id="limit-depth-min" max="1000000000" min=".001" step="any" type="number"/>
+    </label>
+    <label>
+     Maximum depth
+     <input id="limit-depth-max" max="1000000000" min=".001" step="any" type="number"/>
+    </label>
+    <label>
+     Minimum blend
+     <input id="limit-blend-min" max="1000000000" min=".001" step="any" type="number"/>
+    </label>
+    <label>
+     Maximum blend
+     <input id="limit-blend-max" max="1000000000" min=".001" step="any" type="number"/>
+    </label>
+    <label>
+     Minimum view distance
+     <input id="limit-view-min" max="16" min="4" step="1" type="number"/>
+    </label>
+    <label>
+     Maximum view distance
+     <input id="limit-view-max" max="16" min="4" step="1" type="number"/>
+    </label>
    </div>
-   <button class="primary" id="save-settings">Apply limits</button>
+   <h3>
+    Appearance &amp; movement
+   </h3>
+   <div class="settings-grid">
+    <label>
+     Texture density
+     <input id="texture-density" max="1000000" min=".000001" step="any" type="number" value="2"/>
+    </label>
+    <label>
+     Texture contrast
+     <input id="texture-contrast" max="1" min="0" step=".01" type="number" value=".16"/>
+    </label>
+    <label>
+     Move speed
+     <input id="move-speed" max="1000000" min=".001" step="any" type="number" value="1.75"/>
+    </label>
+    <label>
+     Arrow size
+     <input id="arrow-scale" max="1000000" min=".001" step="any" type="number" value="1.4"/>
+    </label>
+    <label>
+     Camera distance
+     <input id="camera-distance" max="1000000000" min=".1" step="any" type="number" value="13"/>
+    </label>
+    <label>
+     Observer range
+     <input id="draw-distance" max="1000000000" min="1" step="any" type="number" value="400"/>
+    </label>
+   </div>
+   <p class="fine">
+    Exact values accept scientific notation. Shape dimensions and position support up to 1e9; view range is limited to 4–16. Very large values lose precision. Ray and movement work is bounded, so extreme scales reduce accuracy.
+   </p>
+   <button class="primary" id="save-settings">
+    Apply limits
+   </button>
   </dialog>
   <dialog id="about">
    <button aria-label="Close explanation" id="close-info">
@@ -282,6 +446,9 @@
     Try the cylinder to see repeated versions of yourself. The two-plane surface connects two infinite sheets through a smooth circular throat. Raise its depth to increase the distance between them.
    </p>
    <p class="fine">
+    Add objects to any scene. Each scene keeps its own objects when you switch. Select Base surface settings to edit its radius, thickness, or throat; select an object to edit its position and shape. Floating objects need a physical connection for walking.
+   </p>
+   <p class="fine">
     Numerical surface geodesics, not a full 4D renderer. The view has a finite travel range; it is an unfolded ray map, not a camera floating over the world. Very distant paths use a sampled mesh and may show interpolation artifacts.
    </p>
   </dialog>
@@ -295,5 +462,8 @@
   </div>
   <script src="app.js" type="module">
   </script>
+  <button aria-label="Open controls" hidden="" id="show-controls">
+   ☰ Controls
+  </button>
  </body>
 </html>

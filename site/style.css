@@ -267,9 +267,13 @@ select {
   margin-top: 12px
 }
 
-#custom-color-label[hidden] { display: none }
+#custom-color-label[hidden] {
+  display: none
+}
 
-.shape-style label { margin: 0 }
+.shape-style label {
+  margin: 0
+}
 
 .shape-style input[type=color] {
   height: 35px;
@@ -522,7 +526,9 @@ dialog .fine {
   font-size: 24px
 }
 
-#settings-dialog { width: min(600px, calc(100vw - 28px)) }
+#settings-dialog {
+  width: min(600px, calc(100vw - 28px))
+}
 
 .settings-grid {
   display: grid;
@@ -531,11 +537,18 @@ dialog .fine {
   margin: 18px 0
 }
 
-.settings-grid label { margin: 0 }
+.settings-grid label {
+  margin: 0
+}
 
-.primary { background: #354c3e; color: white }
+.primary {
+  background: #354c3e;
+  color: white
+}
 
-.primary:hover { background: #243c2f }
+.primary:hover {
+  background: #243c2f
+}
 
 #error {
   position: fixed;
@@ -635,4 +648,60 @@ dialog .fine {
   }
 
   footer>div:first-child {
-    disp
+    disp .exact-number {
+      width: 106px;
+      border: 1px solid #49635433;
+      border-radius: 4px;
+      background: #ffffffc0;
+      padding: 5px 7px;
+      font: 13px monospace;
+      color: #2b4738
+    }
+
+    .color-help {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #536a5c;
+      margin: 8px 0 14px
+    }
+
+    #color-view {
+      margin-top: 6px
+    }
+
+    .range-label {
+      align-items: center
+    }
+
+    .settings-grid input {
+      min-width: 0
+    }
+
+    #controls {
+      width: 290px
+    }
+
+    #color-view {
+      font-size: 13px
+    }
+
+    .fine {
+      font-size: 12px;
+      line-height: 1.5
+    }
+
+    @media(max-width:650px) {
+      #controls {
+        width: 250px
+      }
+
+      #controls.collapsed {
+        width: 200px
+      }
+    }
+
+/* Docked controls: hide the whole panel, not just its contents. */
+#controls {left:0;top:80px;bottom:54px;width:350px;max-height:none;border-radius:0 12px 12px 0;z-index:4;}
+#show-controls {position:fixed;left:12px;top:90px;z-index:5;padding:10px 14px;border:1px solid #becaca;border-radius:7px;background:#f4f8f5;color:#233b47;cursor:pointer;}
+[hidden] {display:none!important;}
+@media(max-width:650px) {#controls {width:min(340px,calc(100vw - 38px));top:70px;bottom:80px;}}
