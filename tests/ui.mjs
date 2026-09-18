@@ -111,6 +111,21 @@ for (let i = 0; i < 10; i++) animate(performance.now() + i * 20);
 assert.ok(tools.get('read_surface_state').execute().distanceTravelled > 0);
 console.log('PASS scene selection, view swapping, shape add/remove, reposition, auto-walk and tool validation');
 
+// The explicit Default option disables a custom swatch; a negative shape also
+// suppresses the material controls even if its data retains an old color.
+elements.get('selection').value = '0';
+elements.get('selection').onchange();
+elements.get('color-mode').value = 'default';
+elements.get('color-mode').onchange();
+assert.equal(elements.get('color-mode').value, 'default');
+assert.equal(elements.get('color').disabled, true);
+elements.get('selection').value = '2';
+elements.get('selection').onchange();
+assert.equal(elements.get('operation').value, 'negative');
+assert.equal(elements.get('color-mode').disabled, true);
+assert.equal(elements.get('custom-color-label').hidden, true);
+console.log('PASS Default color option and negative material suppression UI');
+
 // The settings dialog changes live constraints without allowing a shader-unsafe capacity.
 elements.get('settings').onclick();
 elements.get('limit-shapes').value = '3';

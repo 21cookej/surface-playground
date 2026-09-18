@@ -10,7 +10,11 @@ import {
   project,
   dot,
   SHAPE_TYPES,
-  operationOf
+  operationOf,
+  colorOf,
+  hasCustomMaterial,
+  BASE_COLOR,
+  DEFAULT_COLOR
 } from '../site/surface.js';
 fs.mkdirSync('tests/output', {
   recursive: true
@@ -140,3 +144,16 @@ const unrotated = structuredClone(modern);
 unrotated.shapes[0].rotationX = 0; unrotated.shapes[0].rotationY = 0; unrotated.shapes[0].rotationZ = 0;
 assert.notEqual(field(probe, unrotated)[0], field(probe, modern)[0], 'three-axis rotation changes non-symmetric geometry');
 console.log('PASS primitive operations, all-axis rotations, legacy rotation compatibility, and worker/CPU consistency');
+
+// Default is an explicit base material and a negative operation must never expose
+// its retained custom editor swatch. The shader receives this same boolean as alpha.
+const defaultMaterial = { type: 'cube', operation: 'additive', color: DEFAULT_COLOR };
+const customMaterial = { type: 'cube', operation: 'additive', color: '#e05090' };
+const negativeMaterial = { type: 'cube', operation: 'negative', color: '#e05090' };
+assert.equal(colorOf(defaultMaterial), BASE_COLOR);
+assert.equal(colorOf(customMaterial), '#e05090');
+assert.equal(colorOf(negativeMaterial), BASE_COLOR);
+assert.equal(hasCustomMaterial(defaultMaterial), false);
+assert.equal(hasCustomMaterial(customMaterial), true);
+assert.equal(hasCustomMaterial(negativeMaterial), false);
+console.log('PASS explicit Default material and negative-shape color suppression');
