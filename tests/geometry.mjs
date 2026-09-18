@@ -8,7 +8,9 @@ import {
   normal,
   curvature,
   project,
-  dot
+  dot,
+  SHAPE_TYPES,
+  operationOf
 } from '../site/surface.js';
 fs.mkdirSync('tests/output', {
   recursive: true
@@ -106,3 +108,35 @@ for (let i = 0; i < 1600; i++) {
   assert.ok(Math.abs(dot(a.v, a.n)) < 1e-6);
 }
 console.log('PASS torus handle joins stay constrained');
+
+// Editable primitives share one field contract in the CPU and tracer. New scenes
+// deliberately exercise all axes and both material operations, not just defaults.
+assert.ok(!SHAPE_TYPES.includes('spike'));
+assert.deepEqual(SHAPE_TYPES, ['handle', 'bump', 'bowl', 'ring', 'plane', 'cube', 'sphere', 'cylinder']);
+for (const type of SHAPE_TYPES) {
+  for (const operation of ['additive', 'negative']) {
+    const c = defaults();
+    c.shapes = [{ type, operation, color: '#22aa77', x: 1.5, y: -1, z: .4, rotationX: .31, rotationY: -.42, rotationZ: .63, size: 2.1, strength: 1.35, blend: .75 }];
+    assert.equal(operationOf(c.shapes[0]), operation);
+    const a = spawn(c, true);
+    assert.ok(a.p.every(Number.isFinite), `${type}/${operation} spawn is finite`);
+    assert.ok(Math.abs(field(a.p, c)[0]) < 1e-6, `${type}/${operation} spawn is constrained`);
+    self.onmessage({ data: { config: c, position: a.p, forward: a.v, range: 3, angles: 12, rings: 12, id: 9 } });
+    for (let i = 0; i < result.points.length; i += 3) {
+      const p = Array.from(result.points.slice(i, i + 3));
+      assert.ok(p.every(Number.isFinite), `${type}/${operation} worker point is finite`);
+      assert.ok(Math.abs(field(p, c)[0]) < .015, `${type}/${operation} worker uses CPU field`);
+    }
+  }
+}
+const legacy = defaults();
+legacy.shapes = [{ type: 'cube', x: 0, y: 0, z: 0, rotation: .7, size: 2, strength: 1, blend: 1 }];
+const modern = structuredClone(legacy);
+modern.shapes[0].rotationZ = .7;
+delete modern.shapes[0].rotation;
+const probe = [1.2, -.8, .6];
+assert.deepEqual(field(probe, legacy), field(probe, modern), 'legacy Z rotation remains compatible');
+const unrotated = structuredClone(modern);
+unrotated.shapes[0].rotationX = 0; unrotated.shapes[0].rotationY = 0; unrotated.shapes[0].rotationZ = 0;
+assert.notEqual(field(probe, unrotated)[0], field(probe, modern)[0], 'three-axis rotation changes non-symmetric geometry');
+console.log('PASS primitive operations, all-axis rotations, legacy rotation compatibility, and worker/CPU consistency');

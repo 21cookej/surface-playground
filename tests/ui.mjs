@@ -60,7 +60,7 @@ class Element {
 }
 for (const id of fs.readFileSync('site/index.html', 'utf8').matchAll(/id="([^"]+)"/g)) elements.set(
   id[1], new Element(id[1]));
-const addButtons = ['handle', 'bump', 'bowl'].map(type => {
+const addButtons = ['handle', 'bump', 'bowl', 'ring', 'plane', 'cube', 'sphere', 'cylinder'].map(type => {
   let e = new Element(type);
   e.dataset.add = type;
   return e;
@@ -109,6 +109,30 @@ elements.get('remove').onclick();
 elements.get('walk').onclick();
 for (let i = 0; i < 10; i++) animate(performance.now() + i * 20);
 assert.ok(tools.get('read_surface_state').execute().distanceTravelled > 0);
-console.log(
-  'PASS scene selection, view swapping, shape add/remove, reposition, auto-walk and tool validation'
-  );
+console.log('PASS scene selection, view swapping, shape add/remove, reposition, auto-walk and tool validation');
+
+// The settings dialog changes live constraints without allowing a shader-unsafe capacity.
+elements.get('settings').onclick();
+elements.get('limit-shapes').value = '3';
+elements.get('limit-position').value = '12';
+elements.get('limit-size-min').value = '.8';
+elements.get('limit-size-max').value = '4';
+elements.get('limit-depth-min').value = '.4';
+elements.get('limit-depth-max').value = '3';
+elements.get('limit-blend-min').value = '.2';
+elements.get('limit-blend-max').value = '1.5';
+elements.get('limit-view-min').value = '7';
+elements.get('limit-view-max').value = '18';
+elements.get('save-settings').onclick();
+let state = tools.get('read_surface_state').execute();
+assert.equal(state.maxShapes, 3);
+assert.ok(state.shapeCount <= state.maxShapes);
+const before = state.shapeCount;
+addButtons.find(b => b.dataset.add === 'cylinder').onclick();
+assert.equal(tools.get('read_surface_state').execute().shapeCount, before, 'live maximum shape limit blocks additions');
+assert.equal(elements.get('size').min, .8);
+assert.equal(elements.get('size').max, 4);
+assert.equal(elements.get('distance').min, 7);
+assert.equal(elements.get('distance').max, 18);
+assert.ok(!fs.readFileSync('site/index.html', 'utf8').includes('data-add="spike"'));
+console.log('PASS settings limits, cylinder primitive UI, and removed spike UI');
