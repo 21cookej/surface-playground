@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <title>
+   Surface / One dimension higher
+  </title>
+  <meta content="Explore three-dimensional space curved through a fourth spatial dimension." name="description"/>
+  <link href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='12' fill='%233a9ded'/%3E%3Cellipse cx='16' cy='16' rx='6' ry='12' fill='none' stroke='%23ff8619' stroke-width='3'/%3E%3C/svg%3E" rel="icon"/>
+  <link href="style.css" rel="stylesheet"/>
+ </head>
+ <body>
+  <canvas aria-label="First-person view inside a three-dimensional curved space" id="world">
+  </canvas>
+  <header>
+   <a class="brand" href="../index.html">
+    surface
+    <span>
+     /
+    </span>
+   </a>
+   <span class="dimension">
+    3D SPACE · 4D GEOMETRY
+   </span>
+   <nav>
+    <button aria-pressed="true" id="inside">
+     Inside view
+    </button>
+    <button aria-pressed="false" id="outside">
+     4D slice
+    </button>
+   </nav>
+   <a class="old" href="../index.html">
+    2D version ↗
+   </a>
+  </header>
+  <section class="caption">
+   <strong id="view-title">
+    ONE DIMENSION HIGHER
+   </strong>
+   <p id="view-copy">
+    Travel through a 3D space that bends into W.
+   </p>
+  </section>
+  <aside id="panel">
+   <div class="panel-title">
+    <h1>
+     Shape the space
+    </h1>
+    <button aria-label="Collapse controls" id="collapse">
+     −
+    </button>
+   </div>
+   <div id="controls">
+    <label>
+     World
+     <select id="scene">
+      <option value="0">
+       Flat space + 4D shapes
+      </option>
+      <option value="1">
+       Hypersphere · S³
+      </option>
+      <option value="2">
+       Looped cylinder · S¹ × R²
+      </option>
+      <option value="3">
+       4D torus · S¹ × S²
+      </option>
+     </select>
+    </label>
+    <div class="legend">
+     <span class="gray">
+      Flat
+     </span>
+     <span class="orange">
+      Positive
+     </span>
+     <span class="blue">
+      Negative
+     </span>
+    </div>
+    <div class="buttons">
+     <button id="reset">
+      Reset position
+     </button>
+     <button aria-pressed="false" id="auto">
+      Auto-travel
+     </button>
+    </div>
+    <details open="">
+     <summary>
+      4D objects
+      <span id="count">
+      </span>
+     </summary>
+     <div class="buttons">
+      <button data-add="0">
+       + Sphere
+      </button>
+      <button data-add="1">
+       + Cylinder
+      </button>
+      <button data-add="2">
+       + Torus
+      </button>
+      <button data-add="3">
+       + Cube
+      </button>
+      <button data-add="4">
+       + Capped cylinder
+      </button>
+      <button data-add="5">
+       + Plane
+      </button>
+     </div>
+     <label>
+      Selected object
+      <select id="object">
+      </select>
+     </label>
+     <div id="editor">
+      <label>
+       Operation
+       <select id="operation">
+        <option value="additive">
+         Add space
+        </option>
+        <option value="negative">
+         Carve / negative
+        </option>
+       </select>
+      </label>
+      <div class="numbers">
+       <label>
+        X
+        <input id="x" step=".1" type="number"/>
+       </label>
+       <label>
+        Y
+        <input id="y" step=".1" type="number"/>
+       </label>
+       <label>
+        Z
+        <input id="z" step=".1" type="number"/>
+       </label>
+       <label>
+        W · extra axis
+        <input id="w" step=".1" type="number"/>
+       </label>
+       <label>
+        Radius
+        <input id="radius" max="100" min=".25" step=".1" type="number"/>
+       </label>
+       <label>
+        Ring radius / half-length
+        <input id="major" max="100" min=".5" step=".1" type="number"/>
+       </label>
+       <label>
+        Join / edge softness
+        <input id="blend" max="10" min=".1" step=".1" type="number"/>
+       </label>
+       <label>
+        XW rotation °
+        <input id="angle" step="5" type="number"/>
+       </label>
+      </div>
+      <label>
+       Object material
+       <input id="tint" type="color"/>
+      </label>
+      <div class="buttons">
+       <button id="visit">
+        Visit object
+       </button>
+       <button id="remove">
+        Remove
+       </button>
+      </div>
+     </div>
+    </details>
+    <details>
+     <summary>
+      View &amp; movement
+     </summary>
+     <label>
+      Color view
+      <select id="colors">
+       <option value="0">
+        Curvature · gray / orange / blue
+       </option>
+       <option value="1">
+        Object materials
+       </option>
+      </select>
+     </label>
+     <label class="check">
+      <input checked="" id="ground-lock" type="checkbox"/>
+      Grounded walking
+     </label>
+     <label>
+      Eye height
+      <input id="eye-height" max="2" min=".2" step=".05" type="number" value=".6"/>
+     </label>
+     <label class="check">
+      <input checked="" id="level-camera" type="checkbox"/>
+      Align camera with ground
+     </label>
+     <label>
+      Camera tilt
+      <input id="pitch" max="80" min="-80" step="1" type="range" value="0"/>
+     </label>
+     <label>
+      Field of view
+      <output id="fov-value">
+       70°
+      </output>
+      <input id="fov" max="90" min="45" type="range" value="70"/>
+     </label>
+     <label>
+      Travel speed
+      <input id="speed" max="5" min=".3" step=".1" type="range" value="1.4"/>
+     </label>
+     <label>
+      Render quality
+      <select id="quality">
+       <option value="0">
+        Fast
+       </option>
+       <option selected="" value="1">
+        Balanced
+       </option>
+       <option value="2">
+        Detailed
+       </option>
+      </select>
+     </label>
+     <label class="check">
+      <input id="wrapped-sky" type="checkbox"/>
+      Show wrapped overhead floor
+     </label>
+    </details>
+    <details id="slice-settings">
+     <summary>
+      Outside perspective
+     </summary>
+     <label>
+      Slice Y
+      <input id="slice" max="8" min="-8" step=".05" type="range" value="0"/>
+     </label>
+     <label class="check">
+      <input checked="" id="follow" type="checkbox"/>
+      Follow my Y position
+     </label>
+     <label>
+      Rotate through W
+      <input id="rotation" max="90" min="-90" step="1" type="range" value="0"/>
+     </label>
+     <label>
+      Observer distance
+      <input id="distance" max="24" min="6" type="range" value="15"/>
+     </label>
+     <p class="small">
+      A 3D slice of the 4D scene. At 0°: horizontal X/Z, vertical W; Y is held fixed. Rotate to mix X with W. Hidden parts are outside this slice.
+     </p>
+    </details>
+    <details>
+     <summary>
+      How to explore
+     </summary>
+     <p>
+      WASD move · Space / C rise and descend · drag to look · arrows look · V swap views · R reset.
+     </p>
+     <p>
+      In the outside view, drag to orbit. Red marks your position where it intersects the slice.
+     </p>
+     <p>
+      All three movement directions stay tangent to the curved space. You enter connected shapes continuously, without stepping through a flat portal.
+     </p>
+     <p class="small">
+      Numerical prototype: finite ray distance and integration steps. Very tight curves and disconnected shapes have limits. The torus can contain different curvature signs in different directions.
+     </p>
+    </details>
+   </div>
+  </aside>
+  <button aria-label="Swap main and inset perspectives" id="inset">
+   <canvas id="other">
+   </canvas>
+   <span id="inset-title">
+    4D SLICE · CLICK TO SWAP ↗
+   </span>
+  </button>
+  <div aria-hidden="true" id="crosshair">
+   +
+  </div>
+  <div id="status" role="status">
+   Preparing 4D geometry…
+  </div>
+  <div hidden="" id="error" role="alert">
+  </div>
+  <footer>
+   <span>
+    WASD move
+   </span>
+   <span>
+    Space / C vertical
+   </span>
+   <span>
+    Drag to look
+   </span>
+   <span>
+    V swap views
+   </span>
+  </footer>
+  <div class="touch">
+   <button data-key="w">
+    Forward
+   </button>
+   <button data-key="a">
+    Left
+   </button>
+   <button data-key="s">
+    Back
+   </button>
+   <button data-key="d">
+    Right
+   </button>
+   <button data-key=" ">
+    Up
+   </button>
+   <button data-key="c">
+    Down
+   </button>
+  </div>
+  <script src="app.js" type="module">
+  </script>
+  <button aria-label="Open controls" hidden="" id="show-controls">
+   ☰ Controls
+  </button>
+ </body>
+</html>
