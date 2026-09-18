@@ -34,9 +34,10 @@
      3D observer
     </button>
    </div>
-   <button aria-label="About the simulation" id="info">
-    ?
-   </button>
+   <div class="header-actions">
+    <button aria-haspopup="dialog" aria-label="Open settings" id="settings">Settings</button>
+    <button aria-label="About the simulation" id="info">?</button>
+   </div>
   </header>
   <div class="view-label">
    <span id="view-name">
@@ -84,40 +85,27 @@
        ×
       </button>
      </div>
-     <div class="add-shapes">
-      <button data-add="handle">
-       + Handle
-      </button>
-      <button data-add="bump">
-       + Bump
-      </button>
-      <button data-add="bowl">
-       + Hollow
-      </button>
-      <button data-add="ring">
-       + Ring
-      </button>
-      <button data-add="spike">
-       + Spike
-      </button>
+     <div aria-label="Add a primitive" class="add-shapes" role="group">
+      <button data-add="handle">+ Handle</button>
+      <button data-add="bump">+ Bump</button>
+      <button data-add="bowl">+ Hollow</button>
+      <button data-add="ring">+ Ring</button>
+      <button data-add="plane">+ Flat plane</button>
+      <button data-add="cube">+ Cube</button>
+      <button data-add="sphere">+ Sphere</button>
+      <button data-add="cylinder">+ Cylinder</button>
      </div>
      <div class="positions">
-      <label>
-       X
-       <input id="x" max="30" min="-30" step=".5" type="number"/>
-      </label>
-      <label>
-       Y
-       <input id="y" max="30" min="-30" step=".5" type="number"/>
-      </label>
-      <label>
-       Z
-       <input id="z" max="15" min="-15" step=".5" type="number"/>
-      </label>
-      <label>
-       Spin °
-       <input id="rotation" max="180" min="-180" step="5" type="number"/>
-      </label>
+      <label>X <input id="x" max="30" min="-30" step=".5" type="number"/></label>
+      <label>Y <input id="y" max="30" min="-30" step=".5" type="number"/></label>
+      <label>Z <input id="z" max="30" min="-30" step=".5" type="number"/></label>
+      <label>Rotate X ° <input id="rotationX" max="180" min="-180" step="5" type="number"/></label>
+      <label>Rotate Y ° <input id="rotationY" max="180" min="-180" step="5" type="number"/></label>
+      <label>Rotate Z ° <input id="rotationZ" max="180" min="-180" step="5" type="number"/></label>
+     </div>
+     <div class="shape-style">
+      <label for="operation">Operation <select id="operation"><option value="additive">Additive — raise / connect</option><option value="negative">Negative — cut inward</option></select></label>
+      <label for="color">Shape color <input aria-label="Selected shape color" id="color" type="color" value="#3ba4e4"/></label>
      </div>
     </div>
     <label class="range-label" for="size">
@@ -246,6 +234,24 @@
   <div id="notice" role="status">
    Tracing the surface…
   </div>
+  <dialog aria-labelledby="settings-title" id="settings-dialog">
+   <button aria-label="Close settings" class="dialog-close" id="close-settings">×</button>
+   <h2 id="settings-title">Playground settings</h2>
+   <p class="fine">Limits apply immediately. Shape capacity is fixed at 10 to match the shader and tracer.</p>
+   <div class="settings-grid">
+    <label>Maximum shapes <input id="limit-shapes" max="10" min="1" step="1" type="number"/></label>
+    <label>Position limit (± m) <input id="limit-position" max="100" min="1" step="1" type="number"/></label>
+    <label>Minimum size <input id="limit-size-min" max="50" min=".1" step=".1" type="number"/></label>
+    <label>Maximum size <input id="limit-size-max" max="50" min=".1" step=".1" type="number"/></label>
+    <label>Minimum depth <input id="limit-depth-min" max="30" min=".05" step=".05" type="number"/></label>
+    <label>Maximum depth <input id="limit-depth-max" max="30" min=".05" step=".1" type="number"/></label>
+    <label>Minimum blend <input id="limit-blend-min" max="10" min=".02" step=".01" type="number"/></label>
+    <label>Maximum blend <input id="limit-blend-max" max="10" min=".02" step=".1" type="number"/></label>
+    <label>Minimum view distance <input id="limit-view-min" max="80" min="1" step="1" type="number"/></label>
+    <label>Maximum view distance <input id="limit-view-max" max="80" min="1" step="1" type="number"/></label>
+   </div>
+   <button class="primary" id="save-settings">Apply limits</button>
+  </dialog>
   <dialog id="about">
    <button aria-label="Close explanation" id="close-info">
     ×

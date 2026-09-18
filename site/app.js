@@ -12,7 +12,10 @@ import {
   mul,
   dot,
   cross,
-  norm
+  norm,
+  SHAPE_TYPES,
+  MAX_SHAPES,
+  operationOf
 } from './surface.js';
 import {
   intrinsicVertex,
@@ -22,8 +25,8 @@ import {
 } from './shaders.js';
 const $ = id => document.getElementById(id),
   types = ['joined', 'cylinder', 'torus', 'sheets'],
-  shapeTypes = ['handle', 'bump', 'bowl', 'ring', 'spike'],
-  MAX_SHAPES = 10;
+  shapeTypes = SHAPE_TYPES;
+const limits = { maxShapes: MAX_SHAPES, position: 30, sizeMin: .5, sizeMax: 6, depthMin: .2, depthMax: 4, blendMin: .15, blendMax: 2, viewMin: 6, viewMax: 30 };
 let config = defaults(),
   avatar = spawn(config),
   selected = 0,
@@ -129,15 +132,22 @@ function uniforms(r, pr, c, a) {
   uniform(r, pr, 'radius', 'uniform1f', c.radius);
   uniform(r, pr, 'strength', 'uniform1f', c.strength);
   uniform(r, pr, 'smoothing', 'uniform1f', c.blend);
-  uniform(r, pr, 'shapeCount', 'uniform1i', c.shapes.length);
+  uniform(r, pr, 'shapeCount', 'uniform1i', Math.min(c.shapes.length, MAX_SHAPES));
   let shapes = new Float32Array(MAX_SHAPES * 4),
-    specs = new Float32Array(MAX_SHAPES * 4);
-  c.shapes.forEach((o, i) => {
+    specs = new Float32Array(MAX_SHAPES * 4),
+    rotations = new Float32Array(MAX_SHAPES * 4),
+    colors = new Float32Array(MAX_SHAPES * 4);
+  c.shapes.slice(0, MAX_SHAPES).forEach((o, i) => {
+    const hex = /^#[0-9a-f]{6}$/i.test(o.color || '') ? o.color.slice(1) : '3ba4e4';
     shapes.set([o.x, o.y, shapeTypes.indexOf(o.type), o.size], i * 4);
-    specs.set([o.strength, o.blend, o.z || 0, o.rotation || 0], i * 4)
+    specs.set([o.strength, o.blend, o.z || 0, operationOf(o) === 'negative' ? 1 : 0], i * 4);
+    rotations.set([o.rotationX || 0, o.rotationY || 0, o.rotationZ ?? o.rotation ?? 0, 0], i * 4);
+    colors.set([parseInt(hex.slice(0, 2), 16) / 255, parseInt(hex.slice(2, 4), 16) / 255, parseInt(hex.slice(4, 6), 16) / 255, 1], i * 4);
   });
   uniform(r, pr, 'shapes', 'uniform4fv', shapes);
   uniform(r, pr, 'specs', 'uniform4fv', specs);
+  uniform(r, pr, 'rotations', 'uniform4fv', rotations);
+  uniform(r, pr, 'colors', 'uniform4fv', colors);
   uniform(r, pr, 'player', 'uniform3fv', a.p);
   uniform(r, pr, 'forward', 'uniform3fv', a.v);
   uniform(r, pr, 'up', 'uniform3fv', a.n);
@@ -353,53 +363,68 @@ function selectedShape() {
   return config.mode === 'joined' ? config.shapes[selected] : null;
 }
 
+function syncLimitsToControls() {
+  for (const id of ['x', 'y', 'z']) { $(id).min = -limits.position; $(id).max = limits.position; }
+  $('size').min = limits.sizeMin; $('size').max = limits.sizeMax;
+  $('depth').min = limits.depthMin; $('depth').max = limits.depthMax;
+  $('blend').min = limits.blendMin; $('blend').max = limits.blendMax;
+  $('distance').min = limits.viewMin; $('distance').max = limits.viewMax;
+}
 function syncControls() {
-  const joined = config.mode === 'joined',
-    o = selectedShape();
+  const joined = config.mode === 'joined', o = selectedShape(), labels = {
+    handle: 'Torus handle', bump: 'Spherical bump', bowl: 'Hollow', ring: 'Ring / rim',
+    plane: 'Flat plane', cube: 'Cube', sphere: 'Sphere', cylinder: 'Cylinder'
+  };
+  syncLimitsToControls();
   $('shape-editor').hidden = !joined;
   $('selection').innerHTML = '';
-  config.shapes.forEach((o, i) => {
-    let opt = document.createElement('option');
-    opt.value = i;
-    opt.textContent = (i + 1) + ' · ' + ({
-      handle: 'Torus handle',
-      bump: 'Spherical bump',
-      bowl: 'Hollow',
-      ring: 'Ring / rim',
-      spike: 'Spike'
-    } [o.type]);
-    $('selection').append(opt)
+  config.shapes.forEach((shape, i) => {
+    let opt = document.createElement('option'); opt.value = i; opt.textContent = (i + 1) + ' · ' + (labels[shape.type] || shape.type); $('selection').append(opt);
   });
+  selected = Math.max(0, Math.min(selected, config.shapes.length - 1));
   $('selection').value = selected;
   for (const key of ['x', 'y', 'z']) $(key).value = o ? (o[key] || 0) : 0;
-  $('rotation').value = o ? Math.round((o.rotation || 0) * 180 / Math.PI) : 0;
-  $('size').value = o ? o.size : config.radius;
-  $('depth').max = config.mode === 'sheets' ? 10 : 4;
-  $('depth').value = o ? o.strength : config.strength;
-  $('blend').value = o ? o.blend : config.blend;
-  $('depth').disabled = config.mode === 'cylinder';
-  $('blend').disabled = config.mode === 'cylinder' || config.mode === 'torus';
-  $('depth-label').textContent = config.mode === 'sheets' ? 'Half sheet separation' : config
-    .mode === 'torus' ? 'Tube thickness' : 'Height / depth';
+  for (const key of ['rotationX', 'rotationY', 'rotationZ']) $(key).value = o ? Math.round((o[key] ?? (key === 'rotationZ' ? o.rotation || 0 : 0)) * 180 / Math.PI) : 0;
+  $('operation').value = o ? operationOf(o) : 'additive';
+  $('color').value = o?.color || '#3ba4e4';
+  $('size').value = o ? o.size : config.radius; $('depth').value = o ? o.strength : config.strength; $('blend').value = o ? o.blend : config.blend;
+  $('depth').disabled = config.mode === 'cylinder'; $('blend').disabled = config.mode === 'cylinder' || config.mode === 'torus';
+  $('depth-label').textContent = config.mode === 'sheets' ? 'Half sheet separation' : config.mode === 'torus' ? 'Tube thickness' : 'Height / depth';
   $('size-label').textContent = config.mode === 'sheets' ? 'Throat radius' : 'Radius';
-  $('visit').hidden = !joined;
-  $('remove').disabled = config.shapes.length <= 1;
-  document.querySelectorAll('[data-add]').forEach(b => b.disabled = config.shapes.length >=
-    MAX_SHAPES);
+  $('visit').hidden = !joined; $('remove').disabled = config.shapes.length <= 1;
+  document.querySelectorAll('[data-add]').forEach(b => b.disabled = config.shapes.length >= limits.maxShapes);
   updateOutputs();
   $('scene-note').textContent = {
-    joined: 'Shapes blend into the plane and each other. Walk across a join from any direction.',
+    joined: 'Additive shapes raise, connect, or add material. Negative shapes cut inward. Each shape has its own color and three-axis rotation.',
     cylinder: 'A closed circumference, infinite length. Look for repeated red arrows along the wrapping direction.',
     torus: 'One closed surface. Orange outside, blue inside. Sidestep to move around the tube.',
     sheets: 'Two infinite planes join around a circular throat. Walk toward its blue rim to descend.'
-  } [config.mode];
+  }[config.mode];
 }
-
 function updateOutputs() {
-  for (const key of ['size', 'depth', 'blend']) $(key + '-out').textContent = (+$(key).value)
-    .toFixed(1) + (key === 'size' ? ' m' : key === 'depth' && config.mode === 'sheets' ? ' m' : '');
+  for (const key of ['size', 'depth', 'blend']) $(key + '-out').textContent = (+$(key).value).toFixed(1) + (key === 'size' ? ' m' : key === 'depth' && config.mode === 'sheets' ? ' m' : '');
   $('distance-out').textContent = zoom + ' m';
 }
+function boundedNumber(id, fallback, min, max) { const n = +$(id).value; return Number.isFinite(n) ? Math.max(min, Math.min(max, n)) : fallback; }
+function showSettings() {
+  for (const [id, key] of [['limit-shapes', 'maxShapes'], ['limit-position', 'position'], ['limit-size-min', 'sizeMin'], ['limit-size-max', 'sizeMax'], ['limit-depth-min', 'depthMin'], ['limit-depth-max', 'depthMax'], ['limit-blend-min', 'blendMin'], ['limit-blend-max', 'blendMax'], ['limit-view-min', 'viewMin'], ['limit-view-max', 'viewMax']]) $(id).value = limits[key];
+  $('settings-dialog').showModal();
+}
+function applySettings() {
+  limits.maxShapes = Math.round(boundedNumber('limit-shapes', limits.maxShapes, 1, MAX_SHAPES));
+  limits.position = boundedNumber('limit-position', limits.position, 1, 100);
+  limits.sizeMin = boundedNumber('limit-size-min', limits.sizeMin, .1, 50); limits.sizeMax = Math.max(limits.sizeMin, boundedNumber('limit-size-max', limits.sizeMax, .1, 50));
+  limits.depthMin = boundedNumber('limit-depth-min', limits.depthMin, .05, 30); limits.depthMax = Math.max(limits.depthMin, boundedNumber('limit-depth-max', limits.depthMax, .05, 30));
+  limits.blendMin = boundedNumber('limit-blend-min', limits.blendMin, .02, 10); limits.blendMax = Math.max(limits.blendMin, boundedNumber('limit-blend-max', limits.blendMax, .02, 10));
+  limits.viewMin = boundedNumber('limit-view-min', limits.viewMin, 1, 80); limits.viewMax = Math.max(limits.viewMin, boundedNumber('limit-view-max', limits.viewMax, 1, 80));
+  config.shapes = config.shapes.slice(0, limits.maxShapes);
+  for (const o of config.shapes) { o.x = Math.max(-limits.position, Math.min(limits.position, o.x)); o.y = Math.max(-limits.position, Math.min(limits.position, o.y)); o.z = Math.max(-limits.position, Math.min(limits.position, o.z || 0)); o.size = Math.max(limits.sizeMin, Math.min(limits.sizeMax, o.size)); o.strength = Math.max(limits.depthMin, Math.min(limits.depthMax, o.strength)); o.blend = Math.max(limits.blendMin, Math.min(limits.blendMax, o.blend)); }
+  zoom = Math.max(limits.viewMin, Math.min(limits.viewMax, zoom)); $('distance').value = zoom; selected = Math.min(selected, config.shapes.length - 1);
+  syncControls(); geometryChanged(); $('settings-dialog').close();
+}
+$('settings').onclick = showSettings;
+$('save-settings').onclick = applySettings;
+$('close-settings').onclick = () => $('settings-dialog').close();
 $('scene').onchange = () => {
   config.mode = $('scene').value;
   if (config.mode === 'sheets') {
@@ -410,9 +435,13 @@ $('scene').onchange = () => {
     config.radius = 2.3;
   } else if (config.mode === 'cylinder') {
     config.radius = 2.3;
-    zoom = 20;
+    zoom = Math.max(limits.viewMin, Math.min(limits.viewMax, 20));
     $('distance').value = zoom;
   }
+  config.radius = Math.max(limits.sizeMin, Math.min(limits.sizeMax, config.radius));
+  config.strength = Math.max(limits.depthMin, Math.min(limits.depthMax, config.strength));
+  config.blend = Math.max(limits.blendMin, Math.min(limits.blendMax, config.blend));
+  zoom = Math.max(limits.viewMin, Math.min(limits.viewMax, zoom));
   syncControls();
   reset();
 };
@@ -446,14 +475,15 @@ for (const [id, key] of [
   else if (id !== 'z') config[id === 'size' ? 'radius' : key] = val;
   geometryChanged()
 });
-$('rotation').addEventListener('input', () => {
-  const el = $('rotation');
+for (const id of ['rotationX', 'rotationY', 'rotationZ']) $(id).addEventListener('input', () => {
+  const el = $(id);
   if (!Number.isFinite(+el.value)) return;
-  let val = Math.max(+el.min, Math.min(+el.max, +el.value));
   const o = selectedShape();
-  if (o) o.rotation = val * Math.PI / 180;
-  geometryChanged()
+  if (o) { o[id] = Math.max(+el.min, Math.min(+el.max, +el.value)) * Math.PI / 180; if (id === 'rotationZ') o.rotation = o[id]; }
+  geometryChanged();
 });
+$('operation').onchange = () => { const o = selectedShape(); if (o) { o.operation = $('operation').value; geometryChanged(); } };
+$('color').oninput = () => { const o = selectedShape(); if (o && /^#[0-9a-f]{6}$/i.test($('color').value)) { o.color = $('color').value; dirty = true; revision++; } };
 $('distance').oninput = () => {
   zoom = +$('distance').value;
   dirty = true;
@@ -461,17 +491,14 @@ $('distance').oninput = () => {
   updateOutputs()
 };
 document.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
-  if (config.shapes.length >= MAX_SHAPES) return;
-  const forward = avatar.v;
+  if (config.shapes.length >= limits.maxShapes) return;
+  const forward = avatar.v, palette = ['#3ba4e4', '#f4774f', '#805ad5', '#20a39e', '#d4a017'];
   config.shapes.push({
-    type: b.dataset.add,
+    type: b.dataset.add, operation: b.dataset.add === 'bowl' ? 'negative' : 'additive', color: palette[config.shapes.length % palette.length],
     x: Math.round((avatar.p[0] + forward[0] * 5) * 2) / 2,
     y: Math.round((avatar.p[1] + forward[1] * 5) * 2) / 2,
-    z: 0,
-    rotation: 0,
-    size: 2.6,
-    strength: 1.25,
-    blend: 1.2
+    z: 0, rotation: 0, rotationX: 0, rotationY: 0, rotationZ: 0,
+    size: 2.6, strength: 1.25, blend: 1.2
   });
   selected = config.shapes.length - 1;
   geometryChanged();
@@ -505,122 +532,44 @@ window.addEventListener('keydown', e => {
   if (e.code === 'Escape') setWalk(false);
 });
 window.addEventListener('keyup', e => keys.delete(e.code));
-window.addEventListener('blur', () => {
-  keys.clear();
-  setWalk(false)
-});
-document.addEventListener('visibilitychange', () => {
-  keys.clear();
-  if (document.hidden) setWalk(false)
-});
+window.addEventListener('blur', () => { keys.clear(); setWalk(false) });
+document.addEventListener('visibilitychange', () => { keys.clear(); if (document.hidden) setWalk(false) });
 for (const [i, r] of renderers.entries()) {
   let drag = null;
-  r.canvas.addEventListener('pointerdown', e => {
-    drag = [e.clientX, e.clientY];
-    r.canvas.setPointerCapture(e.pointerId)
-  });
-  r.canvas.addEventListener('pointerup', () => drag = null);
-  r.canvas.addEventListener('pointercancel', () => drag = null);
+  r.canvas.addEventListener('pointerdown', e => { drag = [e.clientX, e.clientY]; r.canvas.setPointerCapture(e.pointerId) });
+  r.canvas.addEventListener('pointerup', () => drag = null); r.canvas.addEventListener('pointercancel', () => drag = null);
   r.canvas.addEventListener('pointermove', e => {
     if (!drag) return;
-    const dx = e.clientX - drag[0],
-      dy = e.clientY - drag[1],
-      isIntrinsic = (i === 0) === (view === 'intrinsic');
-    if (isIntrinsic) rotate(dx * .006);
-    else {
-      orbit -= dx * .006;
-      elevation = Math.max(.15, Math.min(1.4, elevation + dy * .004));
-    }
-    drag = [e.clientX, e.clientY]
+    const dx = e.clientX - drag[0], dy = e.clientY - drag[1], isIntrinsic = (i === 0) === (view === 'intrinsic');
+    if (isIntrinsic) rotate(dx * .006); else { orbit -= dx * .006; elevation = Math.max(.15, Math.min(1.4, elevation + dy * .004)); }
+    drag = [e.clientX, e.clientY];
   });
   r.canvas.addEventListener('wheel', e => {
-    e.preventDefault();
-    const isIntrinsic = (i === 0) === (view === 'intrinsic');
-    if (isIntrinsic) {
-      zoom = Math.round(Math.max(6, Math.min(30, zoom + Math.sign(e.deltaY))));
-      $('distance').value = zoom;
-      dirty = true;
-      updateOutputs();
-    } else camDistance = Math.max(5, Math.min(40, camDistance + Math.sign(e.deltaY)));
-  }, {
-    passive: false
-  });
+    e.preventDefault(); const isIntrinsic = (i === 0) === (view === 'intrinsic');
+    if (isIntrinsic) { zoom = Math.round(Math.max(limits.viewMin, Math.min(limits.viewMax, zoom + Math.sign(e.deltaY)))); $('distance').value = zoom; dirty = true; revision++; updateOutputs(); }
+    else camDistance = Math.max(5, Math.min(40, camDistance + Math.sign(e.deltaY)));
+  }, { passive: false });
 }
 document.querySelectorAll('[data-key]').forEach(b => {
-  b.onpointerdown = e => {
-    e.preventDefault();
-    b.setPointerCapture(e.pointerId);
-    keys.add(b.dataset.key)
-  };
-  b.onpointerup = b.onpointercancel = () => keys.delete(b.dataset.key)
+  b.onpointerdown = e => { e.preventDefault(); b.setPointerCapture(e.pointerId); keys.add(b.dataset.key) };
+  b.onpointerup = b.onpointercancel = () => keys.delete(b.dataset.key);
 });
-let last = performance.now(),
-  hud = 0;
-
+let last = performance.now(), hud = 0;
 function frame(now) {
-  let dt = Math.min(.045, (now - last) / 1000);
-  last = now;
-  move(dt);
-  requestTrace();
-  draw(renderers[0], view === 'intrinsic');
-  draw(renderers[1], view !== 'intrinsic');
-  hud += dt;
-  if (hud > .2) {
-    const k = curvature(avatar.p, config);
-    $('readout').textContent = distance.toFixed(1) + ' m travelled · K ' + (Math.abs(k) < .00005 ?
-      '0.000' : k.toFixed(3));
-    hud = 0;
-  }
+  const dt = Math.min(.045, (now - last) / 1000); last = now; move(dt); requestTrace();
+  draw(renderers[0], view === 'intrinsic'); draw(renderers[1], view !== 'intrinsic'); hud += dt;
+  if (hud > .2) { const k = curvature(avatar.p, config); $('readout').textContent = distance.toFixed(1) + ' m travelled · K ' + (Math.abs(k) < .00005 ? '0.000' : k.toFixed(3)); hud = 0; }
   requestAnimationFrame(frame);
 }
-syncControls();
-setView(view);
-requestAnimationFrame(frame);
+syncControls(); setView(view); requestAnimationFrame(frame);
 if (document.modelContext?.registerTool) {
   for (const tool of [{
-      name: 'read_surface_state',
-      description: 'Read the current surface, constrained player position and local Gaussian curvature.',
-      inputSchema: {
-        type: 'object',
-        properties: {},
-        additionalProperties: false
-      },
-      annotations: {
-        readOnlyHint: true
-      },
-      execute: () => ({
-        surface: config.mode,
-        view,
-        position: avatar.p,
-        curvature: curvature(avatar.p, config),
-        distanceTravelled: distance
-      })
-    }, {
-      name: 'select_surface',
-      description: 'Select a surface example and reset the player on it.',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          surface: {
-            type: 'string',
-            enum: types
-          }
-        },
-        required: ['surface'],
-        additionalProperties: false
-      },
-      execute: input => {
-        if (!types.includes(input?.surface)) throw Error('Invalid surface');
-        $('scene').value = input.surface;
-        $('scene').onchange();
-        return {
-          surface: config.mode,
-          position: avatar.p
-        };
-      }
-    }]) {
-    try {
-      Promise.resolve(document.modelContext.registerTool(tool)).catch(() => {});
-    } catch {}
-  }
+    name: 'read_surface_state', description: 'Read the current surface, constrained player position and local Gaussian curvature.',
+    inputSchema: { type: 'object', properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true },
+    execute: () => ({ surface: config.mode, view, position: avatar.p, curvature: curvature(avatar.p, config), distanceTravelled: distance, shapeCount: config.shapes.length, maxShapes: limits.maxShapes })
+  }, {
+    name: 'select_surface', description: 'Select a surface example and reset the player on it.',
+    inputSchema: { type: 'object', properties: { surface: { type: 'string', enum: types } }, required: ['surface'], additionalProperties: false },
+    execute: input => { if (!types.includes(input?.surface)) throw Error('Invalid surface'); $('scene').value = input.surface; $('scene').onchange(); return { surface: config.mode, position: avatar.p }; }
+  }]) { try { Promise.resolve(document.modelContext.registerTool(tool)).catch(() => {}); } catch {} }
 }
