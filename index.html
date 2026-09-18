@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+ <head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width,initial-scale=1" name="viewport"/>
+  <meta content="#e8ece9" name="theme-color"/>
+  <title>
+   Surface / A curved-space playground
+  </title>
+  <meta content="Explore connected two-dimensional surfaces, geodesic light paths, and intrinsic curvature." name="description"/>
+  <link href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23e9ede9'/%3E%3Cpath d='M7 22Q16 3 25 22' fill='none' stroke='%233ba4e4' stroke-width='3'/%3E%3Cpath d='m13 17 8 4-8 4Z' fill='%23d42228'/%3E%3C/svg%3E" rel="icon"/>
+  <link href="style.css" rel="stylesheet"/>
+ </head>
+ <body>
+  <canvas aria-label="Intrinsic view of geodesic paths on the curved surface" id="main">
+  </canvas>
+  <header>
+   <div class="identity">
+    <strong>
+     surface
+     <span>
+      /
+     </span>
+    </strong>
+    <span class="subtitle">
+     A CURVED-SPACE PLAYGROUND
+    </span>
+   </div>
+   <div aria-label="Main camera" class="view-switch" role="group">
+    <button aria-pressed="true" id="intrinsic">
+     Surface view
+    </button>
+    <button aria-pressed="false" id="observer">
+     3D observer
+    </button>
+   </div>
+   <button aria-label="About the simulation" id="info">
+    ?
+   </button>
+  </header>
+  <div class="view-label">
+   <span id="view-name">
+    INTRINSIC VIEW
+   </span>
+   <p id="view-description">
+    Light follows the surface. Your view unfolds its paths.
+   </p>
+  </div>
+  <section id="controls">
+   <div class="panel-heading">
+    <h1>
+     Shape the space
+    </h1>
+    <button aria-label="Collapse controls" id="collapse">
+     −
+    </button>
+   </div>
+   <div id="control-body">
+    <label for="scene">
+     Surface
+    </label>
+    <select id="scene">
+     <option value="joined">
+      Plane + connected shapes
+     </option>
+     <option value="cylinder">
+      Cylinder · repeated images
+     </option>
+     <option value="torus">
+      Torus · closed surface
+     </option>
+     <option value="sheets">
+      Two planes · curved connection
+     </option>
+    </select>
+    <div id="shape-editor">
+     <label for="selection">
+      Selected shape
+     </label>
+     <div class="row">
+      <select id="selection">
+      </select>
+      <button aria-label="Remove selected shape" id="remove">
+       ×
+      </button>
+     </div>
+     <div class="add-shapes">
+      <button data-add="handle">
+       + Handle
+      </button>
+      <button data-add="bump">
+       + Bump
+      </button>
+      <button data-add="bowl">
+       + Hollow
+      </button>
+      <button data-add="ring">
+       + Ring
+      </button>
+      <button data-add="spike">
+       + Spike
+      </button>
+     </div>
+     <div class="positions">
+      <label>
+       X
+       <input id="x" max="30" min="-30" step=".5" type="number"/>
+      </label>
+      <label>
+       Y
+       <input id="y" max="30" min="-30" step=".5" type="number"/>
+      </label>
+      <label>
+       Z
+       <input id="z" max="15" min="-15" step=".5" type="number"/>
+      </label>
+      <label>
+       Spin °
+       <input id="rotation" max="180" min="-180" step="5" type="number"/>
+      </label>
+     </div>
+    </div>
+    <label class="range-label" for="size">
+     <span id="size-label">
+      Radius
+     </span>
+     <output id="size-out">
+     </output>
+    </label>
+    <input id="size" max="6" min="1.4" step=".1" type="range"/>
+    <label class="range-label" for="depth">
+     <span id="depth-label">
+      Height / depth
+     </span>
+     <output id="depth-out">
+     </output>
+    </label>
+    <input id="depth" max="4" min=".5" step=".1" type="range"/>
+    <label class="range-label" for="blend">
+     <span>
+      Join softness
+     </span>
+     <output id="blend-out">
+     </output>
+    </label>
+    <input id="blend" max="2" min=".4" step=".1" type="range"/>
+    <div class="divider">
+    </div>
+    <label class="range-label" for="distance">
+     <span>
+      View distance
+     </span>
+     <output id="distance-out">
+      12 m
+     </output>
+    </label>
+    <input id="distance" max="30" min="6" step="1" type="range" value="12"/>
+    <div class="row actions">
+     <button id="visit">
+      On the shape
+     </button>
+     <button id="reset">
+      Reset position
+     </button>
+    </div>
+    <p id="scene-note">
+     All shapes blend into the plane and each other. There are no portal triggers.
+    </p>
+   </div>
+  </section>
+  <aside id="inset">
+   <div class="inset-heading">
+    <span id="inset-name">
+     3D OBSERVER
+    </span>
+    <button aria-label="Swap main view and inset" id="swap">
+     ↗
+    </button>
+   </div>
+   <canvas aria-label="Three-dimensional observer view following the red arrow" id="preview">
+   </canvas>
+   <span class="inset-hint" id="inset-hint">
+    Drag to orbit · scroll to zoom
+   </span>
+  </aside>
+  <div id="legend">
+   <span>
+    <i class="zero">
+    </i>
+    Flat
+   </span>
+   <span>
+    <i class="positive">
+    </i>
+    Positive
+   </span>
+   <span>
+    <i class="negative">
+    </i>
+    Negative
+   </span>
+   <small>
+    Gaussian curvature
+   </small>
+  </div>
+  <footer>
+   <div>
+    <kbd>
+     W S
+    </kbd>
+    travel
+    <kbd>
+     A D
+    </kbd>
+    turn
+    <kbd>
+     Q E
+    </kbd>
+    sidestep
+    <kbd>
+     V
+    </kbd>
+    swap views
+   </div>
+   <div id="readout">
+    On the surface
+   </div>
+   <button id="walk">
+    Auto-walk
+   </button>
+  </footer>
+  <div id="touch">
+   <button aria-label="Turn left" data-key="KeyA">
+    ↶
+   </button>
+   <button aria-label="Forward" data-key="KeyW">
+    ↑
+   </button>
+   <button aria-label="Turn right" data-key="KeyD">
+    ↷
+   </button>
+   <button aria-label="Backward" data-key="KeyS">
+    ↓
+   </button>
+  </div>
+  <div id="notice" role="status">
+   Tracing the surface…
+  </div>
+  <dialog id="about">
+   <button aria-label="Close explanation" id="close-info">
+    ×
+   </button>
+   <h2>
+    A world with no “off the edge”
+   </h2>
+   <p>
+    The red arrow lives on a two-dimensional surface. Movement follows that surface, including the underside, steep walls, and smoothly joined shapes.
+   </p>
+   <p>
+    <b>
+     Surface view
+    </b>
+    unfolds geodesics: each screen direction launches a path tangent to the surface. Screen distance is distance travelled along that path. Curved paths can return to the arrow, creating repeated images.
+   </p>
+   <p>
+    <b>
+     3D observer
+    </b>
+    shows the actual surface from behind you. Drag it to orbit. Press V to exchange the views.
+   </p>
+   <p>
+    Orange is positive Gaussian curvature; blue is negative; gray is zero. A cylinder is gray despite bending in 3D: its intrinsic geometry is flat. A torus changes from orange outside to blue inside, crossing zero along two circles.
+   </p>
+   <p>
+    Try the cylinder to see repeated versions of yourself. The two-plane surface connects two infinite sheets through a smooth circular throat. Raise its depth to increase the distance between them.
+   </p>
+   <p class="fine">
+    Numerical surface geodesics, not a full 4D renderer. The view has a finite travel range; it is an unfolded ray map, not a camera floating over the world. Very distant paths use a sampled mesh and may show interpolation artifacts.
+   </p>
+  </dialog>
+  <div hidden="" id="error">
+   <h2>
+    The renderer couldn’t start
+   </h2>
+   <p>
+    Try a browser with WebGL and hardware acceleration enabled.
+   </p>
+  </div>
+  <script src="app.js" type="module">
+  </script>
+ </body>
+</html>
