@@ -15,7 +15,9 @@ import {
   norm,
   SHAPE_TYPES,
   MAX_SHAPES,
-  operationOf
+  operationOf,
+  isCustomColor,
+  BASE_COLOR
 } from './surface.js';
 import {
   intrinsicVertex,
@@ -42,9 +44,15 @@ let config = defaults(),
   snapshot = null,
   orbit = 0,
   elevation = .63,
-  camDistance = 13;
-const ANGLES = 320,
-  RINGS = 160,
+  camDistance = 13,
+  interactionUntil = 0,
+  renderScale = 1,
+  sceneData = null,
+  sceneDataRevision = -1;
+// 280×140 is visually dense at the capped device pixel ratio. During a drag or
+// travel the lighter mesh keeps response immediate; it refines after 180ms idle.
+const TRACE_HIGH = { angles: 280, rings: 140 },
+  TRACE_LOW = { angles: 160, rings: 88 },
   keys = new Set(),
   renderers = [];
 
@@ -89,15 +97,6 @@ function makeRenderer(canvas) {
   gl.bindBuffer(gl.ARRAY_BUFFER, quad);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]), gl
     .STATIC_DRAW);
-  let ix = [];
-  for (let a = 0; a < ANGLES; a++)
-    for (let r = 0; r < RINGS; r++) {
-      let i = a * (RINGS + 1) + r,
-        j = i + RINGS + 1;
-      ix.push(i, j, i + 1, j, j + 1, i + 1);
-    }
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indices);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(ix), gl.STATIC_DRAW);
   return {
     canvas,
     gl,
@@ -107,9 +106,25 @@ function makeRenderer(canvas) {
     screen,
     points,
     indices,
-    count: ix.length,
+    count: 0,
+    meshAngles: 0,
+    meshRings: 0,
     ready: false
   };
+}
+
+function setMesh(r, angles, rings) {
+  if (r.meshAngles === angles && r.meshRings === rings) return;
+  const indices = new Uint16Array(angles * rings * 6);
+  let at = 0;
+  for (let a = 0; a < angles; a++) for (let ring = 0; ring < rings; ring++) {
+    const i = a * (rings + 1) + ring, j = i + rings + 1;
+    indices[at++] = i; indices[at++] = j; indices[at++] = i + 1;
+    indices[at++] = j; indices[at++] = j + 1; indices[at++] = i + 1;
+  }
+  r.gl.bindBuffer(r.gl.ELEMENT_ARRAY_BUFFER, r.indices);
+  r.gl.bufferData(r.gl.ELEMENT_ARRAY_BUFFER, indices, r.gl.STATIC_DRAW);
+  r.count = indices.length; r.meshAngles = angles; r.meshRings = rings;
 }
 try {
   renderers.push(makeRenderer($('main')), makeRenderer($('preview')));
@@ -127,27 +142,36 @@ function uniform(r, pr, name, type, ...values) {
   if (u !== null) r.gl[type](u, ...values);
 }
 
-function uniforms(r, pr, c, a) {
+function packScene(c) {
+  const shapes = new Float32Array(MAX_SHAPES * 4), specs = new Float32Array(MAX_SHAPES * 4),
+    rotationA = new Float32Array(MAX_SHAPES * 4), rotationB = new Float32Array(MAX_SHAPES * 4),
+    colors = new Float32Array(MAX_SHAPES * 4), base = BASE_COLOR.slice(1);
+  for (let i = 0; i < Math.min(c.shapes.length, MAX_SHAPES); i++) {
+    const o = c.shapes[i], at = i * 4, rz = o.rotationZ ?? o.rotation ?? 0,
+      custom = operationOf(o) === 'additive' && isCustomColor(o.color), hex = custom ? o.color.slice(1) : base;
+    shapes[at] = o.x; shapes[at + 1] = o.y; shapes[at + 2] = shapeTypes.indexOf(o.type); shapes[at + 3] = o.size;
+    specs[at] = o.strength; specs[at + 1] = o.blend; specs[at + 2] = o.z || 0; specs[at + 3] = operationOf(o) === 'negative' ? 1 : 0;
+    rotationA[at] = Math.cos(o.rotationX || 0); rotationA[at + 1] = Math.sin(o.rotationX || 0); rotationA[at + 2] = Math.cos(o.rotationY || 0); rotationA[at + 3] = Math.sin(o.rotationY || 0);
+    rotationB[at] = Math.cos(rz); rotationB[at + 1] = Math.sin(rz);
+    colors[at] = parseInt(hex.slice(0, 2), 16) / 255; colors[at + 1] = parseInt(hex.slice(2, 4), 16) / 255; colors[at + 2] = parseInt(hex.slice(4, 6), 16) / 255; colors[at + 3] = custom ? 1 : 0;
+  }
+  return { shapes, specs, rotationA, rotationB, colors };
+}
+function currentSceneData() {
+  if (sceneDataRevision !== revision) { sceneData = packScene(config); sceneDataRevision = revision; }
+  return sceneData;
+}
+function uniforms(r, pr, c, a, packed) {
   uniform(r, pr, 'mode', 'uniform1i', types.indexOf(c.mode));
   uniform(r, pr, 'radius', 'uniform1f', c.radius);
   uniform(r, pr, 'strength', 'uniform1f', c.strength);
   uniform(r, pr, 'smoothing', 'uniform1f', c.blend);
   uniform(r, pr, 'shapeCount', 'uniform1i', Math.min(c.shapes.length, MAX_SHAPES));
-  let shapes = new Float32Array(MAX_SHAPES * 4),
-    specs = new Float32Array(MAX_SHAPES * 4),
-    rotations = new Float32Array(MAX_SHAPES * 4),
-    colors = new Float32Array(MAX_SHAPES * 4);
-  c.shapes.slice(0, MAX_SHAPES).forEach((o, i) => {
-    const hex = /^#[0-9a-f]{6}$/i.test(o.color || '') ? o.color.slice(1) : '3ba4e4';
-    shapes.set([o.x, o.y, shapeTypes.indexOf(o.type), o.size], i * 4);
-    specs.set([o.strength, o.blend, o.z || 0, operationOf(o) === 'negative' ? 1 : 0], i * 4);
-    rotations.set([o.rotationX || 0, o.rotationY || 0, o.rotationZ ?? o.rotation ?? 0, 0], i * 4);
-    colors.set([parseInt(hex.slice(0, 2), 16) / 255, parseInt(hex.slice(2, 4), 16) / 255, parseInt(hex.slice(4, 6), 16) / 255, 1], i * 4);
-  });
-  uniform(r, pr, 'shapes', 'uniform4fv', shapes);
-  uniform(r, pr, 'specs', 'uniform4fv', specs);
-  uniform(r, pr, 'rotations', 'uniform4fv', rotations);
-  uniform(r, pr, 'colors', 'uniform4fv', colors);
+  uniform(r, pr, 'shapes', 'uniform4fv', packed.shapes);
+  uniform(r, pr, 'specs', 'uniform4fv', packed.specs);
+  uniform(r, pr, 'rotationA', 'uniform4fv', packed.rotationA);
+  uniform(r, pr, 'rotationB', 'uniform4fv', packed.rotationB);
+  uniform(r, pr, 'colors', 'uniform4fv', packed.colors);
   uniform(r, pr, 'player', 'uniform3fv', a.p);
   uniform(r, pr, 'forward', 'uniform3fv', a.v);
   uniform(r, pr, 'up', 'uniform3fv', a.n);
@@ -173,7 +197,7 @@ function draw(r, intrinsic) {
     if (!r.ready || !snapshot) return;
     const pr = r.intrinsic;
     gl.useProgram(pr.p);
-    uniforms(r, pr, snapshot.config, snapshot.avatar);
+    uniforms(r, pr, snapshot.config, snapshot.avatar, snapshot.scene);
     uniform(r, pr, 'zoom', 'uniform1f', snapshot.zoom);
     attribute(r, pr, 'screen', r.screen, 2);
     attribute(r, pr, 'point', r.points, 3);
@@ -182,7 +206,7 @@ function draw(r, intrinsic) {
   } else {
     const pr = r.observer;
     gl.useProgram(pr.p);
-    uniforms(r, pr, config, avatar);
+    uniforms(r, pr, config, avatar, currentSceneData());
     const right = cross(avatar.v, avatar.n),
       back = add(mul(avatar.v, -Math.cos(orbit)), mul(right, Math.sin(orbit))),
       camera = add(avatar.p, add(mul(avatar.n, camDistance * Math.sin(elevation)), mul(back,
@@ -215,9 +239,12 @@ worker.onmessage = ({
       gl.bufferData(gl.ARRAY_BUFFER, data.points, gl.DYNAMIC_DRAW);
       gl.bindBuffer(gl.ARRAY_BUFFER, r.screen);
       gl.bufferData(gl.ARRAY_BUFFER, pending.screen, gl.STATIC_DRAW);
+      setMesh(r, pending.angles, pending.rings);
       r.ready = true;
     }
     $('notice').hidden = true;
+    // A coarse in-motion result is immediately refined once the interaction rests.
+    if (pending.low && performance.now() >= interactionUntil) dirty = true;
   }
   pending = null;
 };
@@ -226,56 +253,50 @@ function requestTrace() {
   if (busy || !dirty) return;
   busy = true;
   dirty = false;
-  const aspect = Math.max(...renderers.map(r => r.canvas.width / r.canvas.height)),
-    range = Math.hypot(aspect, 1) * zoom * 1.015;
-  const screen = new Float32Array((ANGLES + 1) * (RINGS + 1) * 2);
-  for (let a = 0; a <= ANGLES; a++) {
-    const t = a / ANGLES * Math.PI * 2;
-    for (let r = 0; r <= RINGS; r++) {
-      const at = (a * (RINGS + 1) + r) * 2,
-        rr = r / RINGS * range;
-      screen[at] = Math.cos(t) * rr;
-      screen[at + 1] = Math.sin(t) * rr;
-    }
+  const low = performance.now() < interactionUntil, quality = low ? TRACE_LOW : TRACE_HIGH,
+    angles = quality.angles, rings = quality.rings,
+    aspect = Math.max(...renderers.map(r => r.canvas.width / r.canvas.height)),
+    range = Math.hypot(aspect, 1) * zoom * 1.015,
+    screen = new Float32Array((angles + 1) * (rings + 1) * 2);
+  // Only one sin/cos pair per ray; ring samples are scalar multiples.
+  for (let a = 0; a <= angles; a++) {
+    const t = a / angles * Math.PI * 2, ct = Math.cos(t), st = Math.sin(t), row = a * (rings + 1) * 2;
+    for (let r = 0; r <= rings; r++) { const rr = r / rings * range, at = row + r * 2; screen[at] = ct * rr; screen[at + 1] = st * rr; }
   }
   pending = {
-    id: ++job,
-    revision,
-    screen,
-    zoom,
-    config: structuredClone(config),
-    avatar: structuredClone(avatar)
+    id: ++job, revision, screen, zoom, angles, rings, low,
+    config: structuredClone(config), avatar: structuredClone(avatar), scene: packScene(config)
   };
-  worker.postMessage({
-    id: job,
-    config: pending.config,
-    position: avatar.p,
-    forward: avatar.v,
-    range,
-    angles: ANGLES,
-    rings: RINGS
-  });
+  worker.postMessage({ id: job, config: pending.config, position: avatar.p, forward: avatar.v, range, angles, rings });
 }
 
 function resize() {
   for (let i = 0; i < renderers.length; i++) {
-    const r = renderers[i],
-      bounds = r.canvas.getBoundingClientRect();
-    r.canvas.width = Math.round(bounds.width * Math.min(devicePixelRatio, 1.1));
-    r.canvas.height = Math.round(bounds.height * Math.min(devicePixelRatio, 1.1));
+    const r = renderers[i], bounds = r.canvas.getBoundingClientRect(), pixelRatio = Math.min(devicePixelRatio, 1.1) * renderScale;
+    r.canvas.width = Math.max(1, Math.round(bounds.width * pixelRatio));
+    r.canvas.height = Math.max(1, Math.round(bounds.height * pixelRatio));
   }
   dirty = true;
+}
+function markInteraction() {
+  interactionUntil = performance.now() + 180;
+  if (renderScale !== .78) { renderScale = .78; resize(); }
+}
+function settleInteraction(now) {
+  if (renderScale !== 1 && now >= interactionUntil) { renderScale = 1; resize(); }
 }
 addEventListener('resize', resize);
 resize();
 
 function rotate(angle) {
+  markInteraction();
   const r = cross(avatar.v, avatar.n);
   avatar.v = norm(add(mul(avatar.v, Math.cos(angle)), mul(r, Math.sin(angle))));
   dirty = true;
 }
 
 function advance(amount, side) {
+  markInteraction();
   const right = cross(avatar.v, avatar.n),
     dir = side ? right : avatar.v;
   let p = avatar.p,
@@ -386,7 +407,12 @@ function syncControls() {
   for (const key of ['x', 'y', 'z']) $(key).value = o ? (o[key] || 0) : 0;
   for (const key of ['rotationX', 'rotationY', 'rotationZ']) $(key).value = o ? Math.round((o[key] ?? (key === 'rotationZ' ? o.rotation || 0 : 0)) * 180 / Math.PI) : 0;
   $('operation').value = o ? operationOf(o) : 'additive';
-  $('color').value = o?.color || '#3ba4e4';
+  const canTint = !!o && operationOf(o) === 'additive', custom = canTint && isCustomColor(o.color);
+  $('color-mode').value = custom ? 'custom' : 'default';
+  $('color-mode').disabled = !canTint;
+  $('color').value = isCustomColor(o?.color) ? o.color : '#3ba4e4';
+  $('color').disabled = !custom;
+  $('custom-color-label').hidden = !canTint;
   $('size').value = o ? o.size : config.radius; $('depth').value = o ? o.strength : config.strength; $('blend').value = o ? o.blend : config.blend;
   $('depth').disabled = config.mode === 'cylinder'; $('blend').disabled = config.mode === 'cylinder' || config.mode === 'torus';
   $('depth-label').textContent = config.mode === 'sheets' ? 'Half sheet separation' : config.mode === 'torus' ? 'Tube thickness' : 'Height / depth';
@@ -451,6 +477,7 @@ $('selection').onchange = () => {
 };
 
 function geometryChanged() {
+  markInteraction();
   revision++;
   dirty = true;
   const old = avatar.n;
@@ -482,12 +509,20 @@ for (const id of ['rotationX', 'rotationY', 'rotationZ']) $(id).addEventListener
   if (o) { o[id] = Math.max(+el.min, Math.min(+el.max, +el.value)) * Math.PI / 180; if (id === 'rotationZ') o.rotation = o[id]; }
   geometryChanged();
 });
-$('operation').onchange = () => { const o = selectedShape(); if (o) { o.operation = $('operation').value; geometryChanged(); } };
-$('color').oninput = () => { const o = selectedShape(); if (o && /^#[0-9a-f]{6}$/i.test($('color').value)) { o.color = $('color').value; dirty = true; revision++; } };
+$('operation').onchange = () => { const o = selectedShape(); if (o) { o.operation = $('operation').value; syncControls(); geometryChanged(); } };
+$('color-mode').onchange = () => {
+  const o = selectedShape();
+  if (!o || operationOf(o) !== 'additive') return;
+  o.color = $('color-mode').value === 'default' ? 'default' : (isCustomColor(o.color) ? o.color : '#3ba4e4');
+  syncControls(); geometryChanged();
+};
+$('color').oninput = () => {
+  const o = selectedShape();
+  if (o && operationOf(o) === 'additive' && isCustomColor($('color').value)) { o.color = $('color').value; markInteraction(); dirty = true; revision++; }
+};
 $('distance').oninput = () => {
   zoom = +$('distance').value;
-  dirty = true;
-  revision++;
+  markInteraction(); dirty = true; revision++;
   updateOutputs()
 };
 document.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
@@ -541,11 +576,13 @@ for (const [i, r] of renderers.entries()) {
   r.canvas.addEventListener('pointermove', e => {
     if (!drag) return;
     const dx = e.clientX - drag[0], dy = e.clientY - drag[1], isIntrinsic = (i === 0) === (view === 'intrinsic');
+    markInteraction();
     if (isIntrinsic) rotate(dx * .006); else { orbit -= dx * .006; elevation = Math.max(.15, Math.min(1.4, elevation + dy * .004)); }
     drag = [e.clientX, e.clientY];
   });
   r.canvas.addEventListener('wheel', e => {
     e.preventDefault(); const isIntrinsic = (i === 0) === (view === 'intrinsic');
+    markInteraction();
     if (isIntrinsic) { zoom = Math.round(Math.max(limits.viewMin, Math.min(limits.viewMax, zoom + Math.sign(e.deltaY)))); $('distance').value = zoom; dirty = true; revision++; updateOutputs(); }
     else camDistance = Math.max(5, Math.min(40, camDistance + Math.sign(e.deltaY)));
   }, { passive: false });
@@ -556,7 +593,7 @@ document.querySelectorAll('[data-key]').forEach(b => {
 });
 let last = performance.now(), hud = 0;
 function frame(now) {
-  const dt = Math.min(.045, (now - last) / 1000); last = now; move(dt); requestTrace();
+  const dt = Math.min(.045, (now - last) / 1000); last = now; move(dt); settleInteraction(now); requestTrace();
   draw(renderers[0], view === 'intrinsic'); draw(renderers[1], view !== 'intrinsic'); hud += dt;
   if (hud > .2) { const k = curvature(avatar.p, config); $('readout').textContent = distance.toFixed(1) + ' m travelled · K ' + (Math.abs(k) < .00005 ? '0.000' : k.toFixed(3)); hud = 0; }
   requestAnimationFrame(frame);

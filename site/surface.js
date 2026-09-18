@@ -7,6 +7,11 @@ export const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * 
 export const norm = a => mul(a, 1 / Math.max(1e-12, Math.hypot(...a)));
 export const SHAPE_TYPES = ['handle', 'bump', 'bowl', 'ring', 'plane', 'cube', 'sphere', 'cylinder'];
 export const MAX_SHAPES = 10; // Keep in sync with the worker and GLSL fixed arrays.
+// `default` is deliberately stored rather than inferred from a particular hex value:
+// it means the shared base material, not a gray-looking custom swatch.
+export const BASE_COLOR = '#919995';
+export const DEFAULT_COLOR = 'default';
+export const isCustomColor = color => /^#[0-9a-f]{6}$/i.test(color || '');
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 
 function blend(a, b, k) {
@@ -61,7 +66,10 @@ function worldVector(v, o) {
   return [cz * x2 - sz * y1, sz * x2 + cz * y1, z2];
 }
 export function operationOf(o) { return o.operation || (o.type === 'bowl' ? 'negative' : 'additive'); }
-export function colorOf(o) { return /^#[0-9a-f]{6}$/i.test(o.color || '') ? o.color : '#3ba4e4'; }
+// Negative geometry has no independent material. Its exposed cavity inherits the
+// base surface, irrespective of an old/custom value retained in its editor state.
+export function colorOf(o) { return operationOf(o) === 'additive' && isCustomColor(o.color) ? o.color : BASE_COLOR; }
+export function hasCustomMaterial(o) { return operationOf(o) === 'additive' && isCustomColor(o.color); }
 function shapeField(o, x, y, z) {
   const [rx, ry, rz] = localPoint(x, y, z, o), stretch = Math.max(.05, o.strength), scale = Math.min(1, stretch), zz = rz / stretch;
   let t;

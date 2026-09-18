@@ -261,11 +261,13 @@ select {
 
 .shape-style {
   display: grid;
-  grid-template-columns: 1fr 70px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 70px;
   align-items: end;
   gap: 8px;
   margin-top: 12px
 }
+
+#custom-color-label[hidden] { display: none }
 
 .shape-style label { margin: 0 }
 
