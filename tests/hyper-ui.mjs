@@ -74,11 +74,12 @@ await import('../site/hyper/app.js');
 const read = () => registered.get('read_4d_state').execute();
 assert.equal(read().position.length, 4);
 assert.equal(read().objects, 1);
+assert.equal(read().observerFollowing, true);
 animate(1000);
 elements.get('outside').onclick();
 assert.equal(elements.get('outside')['aria-pressed'], true);
 elements.get('inside').onclick();
-for (let mode = 0; mode < 4; mode++) {
+for (let mode = 0; mode < 5; mode++) {
   elements.get('scene').value = mode;
   elements.get('scene').onchange();
   buttons[2].onclick();

@@ -9,7 +9,7 @@ import {
   dot,
   norm
 } from '../site/hyper/math.js';
-for (let mode = 0; mode < 4; mode++) {
+for (let mode = 0; mode < 5; mode++) {
   const c = defaults(mode);
   let s = spawn(c);
   for (let i = 0; i < 150; i++) {
@@ -47,7 +47,16 @@ for (let i = 0; i < 350; i++) {
 }
 assert.ok(w > 1, 'player actually enters W');
 assert.ok(Math.abs(s.p[3]) < 1e-5, 'player exits back into ordinary W=0 space');
-console.log('PASS hypersphere curvature, flat cylinder, torus curvature signs, closed loop, and continuous W entry/exit');
+const tunnel = defaults(4);
+s = spawn(tunnel);
+let minimumW = s.p[3];
+for (let i = 0; i < 500; i++) {
+  s = advance(s, s.axes[0], .04, tunnel);
+  minimumW = Math.min(minimumW, s.p[3]);
+  assert.ok(Math.abs(field(s.p, tunnel).d) < 1e-6);
+}
+assert.ok(minimumW < -2.4, 'tunnel continuously reaches the second space');
+console.log('PASS hypersphere curvature, flat cylinder, torus curvature signs, closed loop, continuous W entry/exit, and connected tunnel');
 
 // New walking and primitive behavior: validate the constraints, not UI labels.
 const {
@@ -57,7 +66,7 @@ const {
   floorY,
   primitive
 } = await import('../site/hyper/math.js');
-for (let mode = 0; mode < 4; mode++) {
+for (let mode = 0; mode < 5; mode++) {
   const c = defaults(mode);
   let s = spawn(c);
   s.p = grounded(s.p, c, .6);
