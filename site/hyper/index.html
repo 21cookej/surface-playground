@@ -161,11 +161,14 @@
         Join / edge softness
         <input id="blend" max="10" min=".1" step=".1" type="number"/>
        </label>
-       <label>
-        XW rotation °
-        <input id="angle" step="5" type="number"/>
-       </label>
+       <label>XY rotation °<input id="angleXY" step="5" type="number"/></label>
+       <label>XZ rotation °<input id="angleXZ" step="5" type="number"/></label>
+       <label>XW rotation °<input id="angle" step="5" type="number"/></label>
+       <label>YZ rotation °<input id="angleYZ" step="5" type="number"/></label>
+       <label>YW rotation °<input id="angleYW" step="5" type="number"/></label>
+       <label>ZW rotation °<input id="angleZW" step="5" type="number"/></label>
       </div>
+      <p class="small">YW and ZW rotate the object into the extra dimension. Try 90° to turn a vertical or depth direction fully into W and change the 4D slice.</p>
       <label>
        Object material
        <input id="tint" type="color"/>
@@ -238,7 +241,7 @@
      </label>
      <label class="check">
       <input id="wrapped-sky" type="checkbox"/>
-      Show wrapped overhead floor
+      Show wrapped overhead blobs (off by default)
      </label>
     </details>
     <details id="slice-settings">

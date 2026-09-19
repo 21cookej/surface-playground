@@ -7,6 +7,39 @@ export const norm = a => Math.hypot(...a);
 export const unit = a => scale(a, 1 / Math.max(norm(a), 1e-12));
 export const tangent = (v, n) => add(v, scale(n, -dot(v, n)));
 export const MAX_OBJECTS = 6;
+export const ROTATION_PLANES = ['XY','XZ','XW','YZ','YW','ZW'];
+const rotationCache = new WeakMap();
+export function rotationAngles(o) {
+  return [o.angleXY || 0, o.angleXZ || 0, o.angleXW ?? o.angle ?? 0,
+    o.angleYZ || 0, o.angleYW || 0, o.angleZW || 0];
+}
+// Row-major local-to-world SO(4) matrix. The six Givens rotations expose every
+// independent 4D rotation plane while retaining legacy `angle` as XW.
+export function rotationMatrix(o) {
+  const angles = rotationAngles(o), key = angles.join(','), cached = rotationCache.get(o);
+  if (cached?.key === key) return cached.matrix;
+  let m = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+  const planes = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]];
+  for (let k=0;k<6;k++) {
+    const a=angles[k]; if (!a) continue;
+    const [i,j]=planes[k], c=Math.cos(a), q=Math.sin(a), next=m.slice();
+    for (let col=0;col<4;col++) {
+      next[i*4+col]=c*m[i*4+col]-q*m[j*4+col];
+      next[j*4+col]=q*m[i*4+col]+c*m[j*4+col];
+    }
+    m=next;
+  }
+  rotationCache.set(o,{key,matrix:m});
+  return m;
+}
+export function rotateVector(o,v) {
+  const m=rotationMatrix(o);
+  return [0,1,2,3].map(r=>m[r*4]*v[0]+m[r*4+1]*v[1]+m[r*4+2]*v[2]+m[r*4+3]*v[3]);
+}
+function inverseRotateVector(o,v) {
+  const m=rotationMatrix(o);
+  return [0,1,2,3].map(c=>m[c]*v[0]+m[4+c]*v[1]+m[8+c]*v[2]+m[12+c]*v[3]);
+}
 export function defaults(mode = 0) {
   return {
     mode,
@@ -19,6 +52,7 @@ export function defaults(mode = 0) {
       major: 3,
       blend: 1,
       angle: 0,
+      angleXY: 0, angleXZ: 0, angleXW: 0, angleYZ: 0, angleYW: 0, angleZW: 0,
       color: '#b89be8'
     }] : []
   };
@@ -80,18 +114,9 @@ export function field(p, c) {
     g: [0, 0, 0, 1]
   } : primitive(p, c.mode - 1, c.mode === 3 ? 1.3 : c.radius, 2.8);
   for (const o of c.objects) {
-    const q = add(p, scale(o.p, -1)),
-      cs = Math.cos(o.angle),
-      sn = Math.sin(o.angle),
-      x = q[0],
-      w = q[3];
-    q[0] = cs * x + sn * w;
-    q[3] = -sn * x + cs * w;
-    const b = primitive(q, o.type, o.radius, o.major, o.blend),
-      gx = b.g[0],
-      gw = b.g[3];
-    b.g[0] = cs * gx - sn * gw;
-    b.g[3] = sn * gx + cs * gw;
+    const q = inverseRotateVector(o, add(p, scale(o.p, -1)));
+    const b = primitive(q, o.type, o.radius, o.major, o.blend);
+    b.g = rotateVector(o, b.g);
     if (o.negative) {
       a = {
         d: -a.d,

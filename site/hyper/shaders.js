@@ -11,7 +11,8 @@ uniform int wrappedSky;
 uniform int mode,count,view,colorMode;
 uniform float radius,fov,rayStep,range,slice,rotation,orbit,elevation,observerDistance;
 uniform vec4 centers[6],specs[6],tints[6];
-uniform float operations[6];
+uniform float operations[6],rotationActive[6];
+uniform mat4 objectRotations[6];
 struct Sample {float d;vec4 g;};
 Sample primitive(vec4 p,float type,float r,float R,float soft){
  float rd=min(max(0.,soft)*.5,r*.45);if(type>3.5&&type<4.5)rd=min(rd,R*.8);
@@ -30,7 +31,17 @@ Sample primitive(vec4 p,float type,float r,float R,float soft){
 Sample field(vec4 p){
  Sample a=Sample(p.w,vec4(0.,0.,0.,1.));
  if(mode>0)a=primitive(p,float(mode-1),mode==3?1.3:radius,2.8,0.);
- for(int i=0;i<6;i++){if(i>=count)break;vec4 q=p-centers[i];float c=cos(tints[i].w),s=sin(tints[i].w);q.xw=mat2(c,-s,s,c)*q.xw;Sample b=primitive(q,specs[i].x,specs[i].y,specs[i].z,specs[i].w);b.g.xw=mat2(c,s,-s,c)*b.g.xw;if(operations[i]>.5)a=Sample(-a.d,-a.g);float k=specs[i].w,h=clamp(.5+.5*(b.d-a.d)/k,0.,1.);a=Sample(mix(b.d,a.d,h)-k*h*(1.-h),mix(b.g,a.g,h));if(operations[i]>.5)a=Sample(-a.d,-a.g);}return a;
+ for(int i=0;i<6;i++){
+  if(i>=count)break;
+  vec4 q=p-centers[i];
+  if(rotationActive[i]>.5){mat4 m=objectRotations[i];q=vec4(dot(m[0],q),dot(m[1],q),dot(m[2],q),dot(m[3],q));}
+  Sample b=primitive(q,specs[i].x,specs[i].y,specs[i].z,specs[i].w);
+  if(rotationActive[i]>.5)b.g=objectRotations[i]*b.g;
+  if(operations[i]>.5)a=Sample(-a.d,-a.g);
+  float k=specs[i].w,h=clamp(.5+.5*(b.d-a.d)/k,0.,1.);
+  a=Sample(mix(b.d,a.d,h)-k*h*(1.-h),mix(b.g,a.g,h));
+  if(operations[i]>.5)a=Sample(-a.d,-a.g);
+ }return a;
 }
 vec4 normal(vec4 p){return normalize(field(p).g);}
 vec4 tangent(vec4 a,vec4 n){return a-n*dot(a,n);}

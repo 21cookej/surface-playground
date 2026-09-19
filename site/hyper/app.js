@@ -13,7 +13,10 @@ import {
   add,
   scale,
   unit,
-  MAX_OBJECTS
+  MAX_OBJECTS,
+  rotationAngles,
+  rotationMatrix,
+  rotateVector
 } from './math.js';
 import {
   vertex,
@@ -40,7 +43,7 @@ const keys = new Set(),
 // stretching an 800px image across a large display.
 const quality = [{scale:.68,moving:.46,max:900,step:.20},{scale:.90,moving:.58,max:1320,step:.16},{scale:1.08,moving:.72,max:1800,step:.13}];
 let reducedResolution=true, refineAfter=0;
-const centers=new Float32Array(24),specs=new Float32Array(24),tints=new Float32Array(24),ops=new Float32Array(6);
+const centers=new Float32Array(24),specs=new Float32Array(24),tints=new Float32Array(24),ops=new Float32Array(6),rotationActive=new Float32Array(6),objectRotations=new Float32Array(96);
 
 function renderer(canvas) {
   const gl = canvas.getContext('webgl', {
@@ -166,15 +169,22 @@ function draw(r, view) {
       ['elevation', elevation],
       ['observerDistance', +$('distance').value]
     ]) U(n, 'uniform1f', v);
-  centers.fill(0);specs.fill(0);tints.fill(0);ops.fill(0);
+  centers.fill(0);specs.fill(0);tints.fill(0);ops.fill(0);rotationActive.fill(0);objectRotations.fill(0);
   config.objects.forEach((o, i) => {
     centers.set(o.p, i * 4);
     specs.set([o.type, o.radius, o.major, o.blend], i * 4);
-    tints.set([...o.color.slice(1).match(/../g).map(x => parseInt(x, 16) / 255), o.angle], i * 4);
+    tints.set([...o.color.slice(1).match(/../g).map(x => parseInt(x, 16) / 255), 1], i * 4);
+    const m=rotationMatrix(o),angles=rotationAngles(o);
+    rotationActive[i]=angles.some(a=>Math.abs(a)>1e-8)?1:0;
+    // WebGL matrices are column-major; rotationMatrix is row-major.
+    for(let row=0;row<4;row++)for(let col=0;col<4;col++)objectRotations[i*16+col*4+row]=m[row*4+col];
   });
+  for(let i=config.objects.length;i<6;i++)for(let j=0;j<4;j++)objectRotations[i*16+j*5]=1;
   U('centers[0]', 'uniform4fv', centers);
   U('specs[0]', 'uniform4fv', specs);
   U('tints[0]', 'uniform4fv', tints);
+  U('rotationActive[0]', 'uniform1fv', rotationActive);
+  U('objectRotations[0]', 'uniformMatrix4fv', false, objectRotations);
   config.objects.forEach((o, i) => ops[i] = o.negative ? 1 : 0);
   U('operations[0]', 'uniform1fv', ops);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
@@ -195,7 +205,8 @@ function select() {
   const o = config.objects[selection];
   ['x', 'y', 'z', 'w'].forEach((id, i) => $(id).value = o.p[i].toFixed(2));
   for (const id of ['radius', 'major', 'blend']) $(id).value = o[id];
-  $('angle').value = o.angle * 180 / Math.PI;
+  const a=rotationAngles(o),ids=['angleXY','angleXZ','angle','angleYZ','angleYW','angleZW'];
+  ids.forEach((id,i)=>$(id).value=(a[i]*180/Math.PI).toFixed(2));
   $('tint').value = o.color;
   $('major').disabled = o.type !== 2 && o.type !== 4;
   $('operation').value = o.negative ? 'negative' : 'additive';
@@ -249,6 +260,7 @@ document.querySelectorAll('[data-add]').forEach(b => b.onclick = () => {
     major: 3,
     blend: .8,
     angle: 0,
+    angleXY:0,angleXZ:0,angleXW:0,angleYZ:0,angleYW:0,angleZW:0,
     color: '#b89be8'
   });
   selection = config.objects.length - 1;
@@ -275,8 +287,10 @@ function edit() {
     const v = parseFloat($(id).value);
     if (Number.isFinite(v)) o[id] = Math.max(+$(id).min, Math.min(+$(id).max, v));
   }
-  const a = parseFloat($('angle').value);
-  if (Number.isFinite(a)) o.angle = a * Math.PI / 180;
+  for(const [id,key] of [['angleXY','angleXY'],['angleXZ','angleXZ'],['angle','angleXW'],['angleYZ','angleYZ'],['angleYW','angleYW'],['angleZW','angleZW']]){
+    const a=parseFloat($(id).value);if(Number.isFinite(a))o[key]=a*Math.PI/180;
+  }
+  o.angle=o.angleXW; // readable by older saved configurations
   o.color = $('tint').value;
   o.negative = $('operation').value === 'negative';
   state.p = project(state.p, config);
@@ -284,7 +298,7 @@ function edit() {
   settle();
   dirty = true;
 }
-for (const id of ['x', 'y', 'z', 'w', 'radius', 'major', 'blend', 'angle', 'tint', 'operation']) $(id).onchange = edit;
+for (const id of ['x', 'y', 'z', 'w', 'radius', 'major', 'blend', 'angleXY', 'angleXZ', 'angle', 'angleYZ', 'angleYW', 'angleZW', 'tint', 'operation']) $(id).onchange = edit;
 $('remove').onclick = () => {
   if (selection < 0) return;
   config.objects.splice(selection, 1);
@@ -295,14 +309,8 @@ $('visit').onclick = () => {
   if (selection < 0) return;
   const o = config.objects[selection];
   const local = o.type === 2 ? [o.major, 0, 0, o.radius] : [0, 0, 0, o.radius];
-  const cs = Math.cos(o.angle),
-    sn = Math.sin(o.angle);
-  state.p = project(add(o.p, [cs * local[0] - sn * local[3], 0, 0, sn * local[0] + cs * local[3]]), config);
-  state.axes = frame(state.p, [
-    [0, 0, 1, 0],
-    [1, 0, 0, 0],
-    [0, 1, 0, 0]
-  ], config);
+  state.p = project(add(o.p, rotateVector(o,local)), config);
+  state.axes = frame(state.p, [rotateVector(o,[0,0,1,0]),rotateVector(o,[1,0,0,0]),rotateVector(o,[0,1,0,0])], config);
   settle();
   dirty = true;
 };
