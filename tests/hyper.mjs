@@ -83,7 +83,12 @@ for (const type of [0, 1, 2, 3, 4, 5])
       radius: 2,
       major: 2.5,
       blend: .5,
-      angle: .35
+      angleXY: .11,
+      angleXZ: -.17,
+      angleXW: .35,
+      angleYZ: .23,
+      angleYW: -.29,
+      angleZW: .19
     }];
     const p = [1.6, .4, .8, .3],
       a = field(p, c),
