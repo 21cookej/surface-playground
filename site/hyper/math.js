@@ -109,10 +109,16 @@ export function primitive(p, type, r, R, soft = 0) {
   };
 }
 export function field(p, c) {
-  let a = c.mode === 0 ? {
-    d: p[3],
-    g: [0, 0, 0, 1]
-  } : primitive(p, c.mode - 1, c.mode === 3 ? 1.3 : c.radius, 2.8);
+  let a;
+  if (c.mode === 0) a = {d:p[3],g:[0,0,0,1]};
+  else if (c.mode === 4) {
+    // Far away: W = +/-2.5. Near the origin a spherical neck joins both spaces.
+    const rr=Math.max(Math.hypot(p[0],p[1],p[2]),1e-9),
+      sheet={d:Math.abs(p[3])-2.5,g:[0,0,0,Math.sign(p[3])||1]},
+      neck={d:c.radius-rr,g:[-p[0]/rr,-p[1]/rr,-p[2]/rr,0]},
+      k=Math.max(.05,c.blend),h=Math.max(0,Math.min(1,.5+.5*(sheet.d-neck.d)/k));
+    a={d:neck.d*(1-h)+sheet.d*h+k*h*(1-h),g:add(scale(neck.g,1-h),scale(sheet.g,h))};
+  } else a = primitive(p, c.mode - 1, c.mode === 3 ? 1.3 : c.radius, 2.8);
   for (const o of c.objects) {
     const q = inverseRotateVector(o, add(p, scale(o.p, -1)));
     const b = primitive(q, o.type, o.radius, o.major, o.blend);
@@ -165,7 +171,8 @@ export function frame(p, axes, c) {
   return out;
 }
 export function spawn(c) {
-  const p = project(c.mode === 0 ? [.8, 0, -7.5, 0] : c.mode === 3 ? [4.1, 0, 0, 0] : [c.radius, 0, 0, 0], c);
+  const start=c.mode===0?[.8,0,-7.5,0]:c.mode===3?[4.1,0,0,0]:c.mode===4?[0,0,-c.radius-3,2.5]:[c.radius,0,0,0];
+  const p = project(start, c);
   return {
     p,
     axes: frame(p, [

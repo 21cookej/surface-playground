@@ -156,10 +156,12 @@ function draw(r, view) {
       ['count', config.objects.length],
       ['view', view],
       ['colorMode', +$('colors').value],
-      ['wrappedSky', $('wrapped-sky').checked ? 1 : 0]
+      ['wrappedSky', $('wrapped-sky').checked ? 1 : 0],
+      ['observerFollow', $('follow').checked ? 1 : 0]
     ]) U(n, 'uniform1i', v);
   for (const [n, v] of [
       ['radius', config.radius],
+      ['baseBlend', config.blend],
       ['fov', +$('fov').value * Math.PI / 180],
       ['rayStep', quality[+$('quality').value].step],
       ['range', 22],
@@ -451,6 +453,7 @@ if (document.modelContext?.registerTool) document.modelContext.registerTool({
     axes: state.axes,
     mode: config.mode,
     objects: config.objects.length,
+    observerFollowing: $('follow').checked,
     residual: field(state.p, config).d
   })
 });

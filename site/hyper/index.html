@@ -68,6 +68,9 @@
       <option value="3">
        4D torus · S¹ × S²
       </option>
+      <option value="4">
+       Two spaces · connected tunnel
+      </option>
      </select>
     </label>
     <div class="legend">
@@ -254,7 +257,7 @@
      </label>
      <label class="check">
       <input checked="" id="follow" type="checkbox"/>
-      Follow my Y position
+      Observer follows main camera
      </label>
      <label>
       Rotate through W
@@ -265,7 +268,7 @@
       <input id="distance" max="24" min="6" type="range" value="15"/>
      </label>
      <p class="small">
-      A 3D slice of the 4D scene. At 0°: horizontal X/Z, vertical W; Y is held fixed. Rotate to mix X with W. Hidden parts are outside this slice.
+      The observer follows the main camera in X/Z/W and keeps its Y slice aligned by default. At 0°: horizontal X/Z, vertical W; Y is held fixed. Rotate to mix X with W. Hidden parts are outside this slice.
      </p>
     </details>
     <details>

@@ -8,8 +8,8 @@ varying vec2 uv;
 uniform vec2 resolution;
 uniform vec4 player,forward,right,up,groundUp;
 uniform int wrappedSky;
-uniform int mode,count,view,colorMode;
-uniform float radius,fov,rayStep,range,slice,rotation,orbit,elevation,observerDistance;
+uniform int mode,count,view,colorMode,observerFollow;
+uniform float radius,baseBlend,fov,rayStep,range,slice,rotation,orbit,elevation,observerDistance;
 uniform vec4 centers[6],specs[6],tints[6];
 uniform float operations[6],rotationActive[6];
 uniform mat4 objectRotations[6];
@@ -30,7 +30,12 @@ Sample primitive(vec4 p,float type,float r,float R,float soft){
 }
 Sample field(vec4 p){
  Sample a=Sample(p.w,vec4(0.,0.,0.,1.));
- if(mode>0)a=primitive(p,float(mode-1),mode==3?1.3:radius,2.8,0.);
+ if(mode>0&&mode<4)a=primitive(p,float(mode-1),mode==3?1.3:radius,2.8,0.);
+ if(mode==4){
+  float rr=max(length(p.xyz),.00001);Sample sheet=Sample(abs(p.w)-2.5,vec4(0.,0.,0.,p.w<0.?-1.:1.)),neck=Sample(radius-rr,vec4(-p.xyz/rr,0.));
+  float k=max(.05,baseBlend),h=clamp(.5+.5*(sheet.d-neck.d)/k,0.,1.);
+  a=Sample(mix(neck.d,sheet.d,h)+k*h*(1.-h),mix(neck.g,sheet.g,h));
+ }
  for(int i=0;i<6;i++){
   if(i>=count)break;
   vec4 q=p-centers[i];
@@ -96,7 +101,7 @@ void main(){vec2 xy=uv*vec2(resolution.x/resolution.y,1.);vec3 col;
 
   if(hit)col=mix(col,sky(v),1.-exp(-travel*.018));
  }else{
-  vec3 target=vec3(0.,.8,1.),eye=target+observerDistance*vec3(sin(orbit)*cos(elevation),sin(elevation),-cos(orbit)*cos(elevation));vec3 f=normalize(target-eye),r=normalize(cross(f,vec3(0.,1.,0.))),u=cross(r,f),v=normalize(f+xy.x*r*.55+xy.y*u*.55),p=eye;float t=0.;col=vec3(.12,.17,.21);
+  float rc=cos(rotation),rs=sin(rotation);vec3 followed=vec3(rc*player.x-rs*player.w,rs*player.x+rc*player.w,player.z);vec3 target=observerFollow==1?followed:vec3(0.,.8,1.),eye=target+observerDistance*vec3(sin(orbit)*cos(elevation),sin(elevation),-cos(orbit)*cos(elevation));vec3 f=normalize(target-eye),r=normalize(cross(f,vec3(0.,1.,0.))),u=cross(r,f),v=normalize(f+xy.x*r*.55+xy.y*u*.55),p=eye;float t=0.;col=vec3(.12,.17,.21);
   for(int i=0;i<180;i++){p=eye+v*t;vec4 q=slicePoint(p);Sample a=field(q);float d=abs(a.d);if(d<.012){float e=.01;vec3 n=normalize(vec3(field(slicePoint(p+vec3(e,0.,0.))).d-field(slicePoint(p-vec3(e,0.,0.))).d,field(slicePoint(p+vec3(0.,e,0.))).d-field(slicePoint(p-vec3(0.,e,0.))).d,field(slicePoint(p+vec3(0.,0.,e))).d-field(slicePoint(p-vec3(0.,0.,e))).d));col=shade(q,.55+.35*abs(dot(n,normalize(vec3(-.4,1.,-.7)))),t*1.1/resolution.y/max(.15,abs(dot(n,v))));if(length(q-player)<.25)col=vec3(1.,.03,.06);col=mix(col,vec3(.12,.17,.21),1.-exp(-t*.013));break;}t+=max(.008,d*.72);if(t>80.)break;}
  }
  gl_FragColor=vec4(pow(max(col,vec3(0.)),vec3(.92)),1.);
